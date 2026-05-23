@@ -1,0 +1,80 @@
+# =========================================================================
+# .gitignore for rvsenyuva/wb-nf-xlmimo-clkl
+# Paper C: Wideband Near-Field Channel Estimation under Hybrid Compression
+# =========================================================================
+
+# ------------------------------------------------------------------
+# MATLAB autosave and workspace files
+# ------------------------------------------------------------------
+*.asv
+*.m~
+*.mat
+*.fig
+slprj/
+codegen/
+matlab_crash_dump.*
+
+# ------------------------------------------------------------------
+# Superseded / experimental source files -- NEVER push these
+# ------------------------------------------------------------------
+*_v1.m
+wb_clkl_estimator_v2.m
+wb_clkl_driver_v2.m
+*_v3.m
+*_old*
+*_backup*
+*_copy*
+*_test_2026*
+*_20260505*
+*_20260506*
+*_20260507*
+*_20260508*
+setup_production_P.m
+setup_production_P_v2.m
+setup_production_P_v3.m
+
+# ------------------------------------------------------------------
+# Superseded CSV / diagnostic files (pre-Phase 3 runs)
+# ------------------------------------------------------------------
+mc_convergence_sweep_20260509_105853.csv
+mc_convergence_Lhist_SNR0dB_20260509_105853.csv
+mc_convergence_Lhist_SNR5dB_20260509_105853.csv
+mc_convergence_Lhist_SNR10dB_20260509_105853.csv
+mc_convergence_Lhist_SNR15dB_20260509_105853.csv
+mc_snr_sweep_20260509*.csv
+forensic_single*.csv
+bpd_toy_test_diag.csv
+wb_channel_gen_toy_diag.csv
+wb_crb_compressed_toy_diag.csv
+wb_psomp_toy_diag.csv
+wb_dl_omp_toy_diag.csv
+mc_toy_diag.csv
+wb_clkl_driver_toy_test_v2_diag.csv
+wb_clkl_toy_test_v2_diag.csv
+C3_diagnostic_results.csv
+
+# ------------------------------------------------------------------
+# Generated figure outputs (always regenerate from CSVs)
+# ------------------------------------------------------------------
+*.png
+*.pdf
+*.eps
+*.svg
+figures/
+
+# ------------------------------------------------------------------
+# OS and editor metadata
+# ------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ------------------------------------------------------------------
+# Credentials and secrets
+# ------------------------------------------------------------------
+*.key
+*.pem
+*.env
