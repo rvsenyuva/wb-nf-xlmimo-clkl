@@ -88,7 +88,7 @@ wb-nf-xlmimo-clkl/
 +-- LICENSE
 +-- .gitignore
 |
-+-- src/                          10 canonical MATLAB source files
++-- src/                          11 canonical MATLAB source files
 |   +-- wb_clkl_estimator.m       Proposed WB-CL-KL estimator (v2; SNR-adaptive loading)
 |   +-- wb_clkl_driver.m          Driver with C3-patch (3-way Phase D argmin)
 |   +-- setup_production_P_v4.m   Production parameter struct
@@ -99,6 +99,7 @@ wb-nf-xlmimo-clkl/
 |   +-- wb_dl_omp.m               WB-DL-OMP baseline (B5: full-array)
 |   +-- wb_nf_fresnel_steer.m     Shared Fresnel/USW steering vector utility
 |   +-- wb_channel_gen_ofdm_nf.m  Wideband near-field OFDM channel generator
+|   +-- nf_usw_steer.m            Paper B USW steering vector (dependency of wb_channel_gen_ofdm_nf)
 |
 +-- tests/                        8 unit test / toy test scripts
 |   +-- wb_clkl_toy_test_v2.m
