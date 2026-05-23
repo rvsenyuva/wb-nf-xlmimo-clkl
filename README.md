@@ -4,7 +4,7 @@
 Cross-Subcarrier KL Covariance Fitting with OFDM Fresnel Model**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/PLACEHOLDER.svg)](https://doi.org/PLACEHOLDER)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20356437.svg)](https://doi.org/10.5281/zenodo.20356437)
 
 MATLAB simulation code and production CSV results for Paper C.
 Companion to arXiv preprint [to be assigned].
