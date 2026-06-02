@@ -66,16 +66,36 @@ wb_clkl_driver_toy_test_v2    % Expected: T1-T6 all PASS
 wb_crb_compressed_toy_test    % Expected: T1-T4 all PASS
 wb_psomp_toy_test              % Expected: T1-T4 all PASS
 wb_dl_omp_toy_test             % Expected: T1-T4 all PASS
+wb_channel_gen_toy_test        % Expected: smoke test passes
+bpd_toy_test                   % Expected: smoke test passes
 mc_toy_test                    % Expected: smoke test passes (5 MC trials)
 cd ..
 
-% 4. Run the full Monte Carlo (SNR sweep, ~5 min on 6 parfor workers)
+% 4. Reproduce all paper figures from the committed CSVs
+cd plotting
+fig6_crb_d2_snr        % Fig 6: CRB compression gap vs SNR
+fig7_crb_geodiv_bw     % Fig 7: Geometric diversity CRB vs bandwidth
+fig8a_rmse_r_snr       % Fig 8a: Range RMSE vs SNR
+fig8b_nmse_r_bw        % Fig 8b: Range NMSE vs bandwidth
+fig9a_rmse_theta_snr   % Fig 9a: Angle RMSE vs SNR
+fig9b_convpct_snr_b4   % Fig 9b: Convergence rate vs SNR
+fig10_kl_convergence   % Fig 10: KL objective vs iteration
+cd ..
+```
+
+Each plotting script reads directly from the committed CSVs in `results/` and
+exports a PDF to the `plotting/` folder. No re-running the Monte Carlo is needed
+to reproduce the figures.
+
+To run the full Monte Carlo from scratch (SNR sweep, ~8 min on 6 parfor workers):
+
+```matlab
+addpath('src')
 cd src
 run_monte_carlo_paperC
 ```
 
 The Monte Carlo driver reads parameters from `setup_production_P_v4.m`.
-Default sweep: SNR in [-5, 0, 5, 10, 15] dB, N_MC=200, B=400 MHz, M=64, N_RF=8.
 
 ---
 
@@ -88,20 +108,20 @@ wb-nf-xlmimo-clkl/
 +-- LICENSE
 +-- .gitignore
 |
-+-- src/                          11 canonical MATLAB source files
-|   +-- wb_clkl_estimator.m       Proposed WB-CL-KL estimator (v2; SNR-adaptive loading)
-|   +-- wb_clkl_driver.m          Driver with C3-patch (3-way Phase D argmin)
-|   +-- setup_production_P_v4.m   Production parameter struct
-|   +-- run_monte_carlo_paperC.m  Master Monte Carlo driver (745 lines; parfor)
-|   +-- wb_crb_compressed.m       Wideband compressed-domain CRB
-|   +-- bpd_baseline.m            BPD baseline estimator (B1: WB-BPD full-array)
-|   +-- wb_psomp.m                WB-P-SOMP baseline (B2: compressed)
-|   +-- wb_dl_omp.m               WB-DL-OMP baseline (B5: full-array)
-|   +-- wb_nf_fresnel_steer.m     Shared Fresnel/USW steering vector utility
-|   +-- wb_channel_gen_ofdm_nf.m  Wideband near-field OFDM channel generator
-|   +-- nf_usw_steer.m            Paper B USW steering vector (dependency of wb_channel_gen_ofdm_nf)
++-- src/                              11 canonical MATLAB source files
+|   +-- wb_clkl_estimator.m           Proposed WB-CL-KL estimator (v2; SNR-adaptive loading)
+|   +-- wb_clkl_driver.m              Driver with C3-patch (3-way Phase D argmin)
+|   +-- setup_production_P_v4.m       Production parameter struct (r_hi_fac=0.20)
+|   +-- run_monte_carlo_paperC.m      Master Monte Carlo driver (parfor, N_MC=600)
+|   +-- wb_crb_compressed.m           Wideband compressed-domain CRB
+|   +-- bpd_baseline.m                BPD baseline estimator (B1: WB-BPD full-array)
+|   +-- wb_psomp.m                    WB-P-SOMP baseline (B2: compressed)
+|   +-- wb_dl_omp.m                   WB-DL-OMP baseline (B5: full-array)
+|   +-- wb_nf_fresnel_steer.m         Shared Fresnel/USW steering vector utility
+|   +-- wb_channel_gen_ofdm_nf.m      Wideband near-field OFDM channel generator
+|   +-- nf_usw_steer.m                USW steering vector (dependency of wb_channel_gen_ofdm_nf)
 |
-+-- tests/                        8 unit test / toy test scripts
++-- tests/                            8 unit test / toy test scripts
 |   +-- wb_clkl_toy_test_v2.m
 |   +-- wb_clkl_driver_toy_test_v2.m
 |   +-- wb_crb_compressed_toy_test.m
@@ -111,44 +131,80 @@ wb-nf-xlmimo-clkl/
 |   +-- bpd_toy_test.m
 |   +-- mc_toy_test.m
 |
-+-- diagnostics/                  1 forensic diagnostic script
-|   +-- wb_clkl_forensic_single.m Single-realisation KL trajectory diagnostic
++-- diagnostics/                      1 forensic diagnostic script
+|   +-- wb_clkl_forensic_single.m     Single-realisation KL trajectory diagnostic
 |
-+-- results/                      9 production CSV files (Phase 3 complete)
-    +-- mc_snr_sweep_20260511_193038.csv
-    +-- mc_bandwidth_sweep_20260520_180317.csv
-    +-- mc_convergence_sweep_20260520_181757.csv
-    +-- mc_convergence_Lhist_SNR0dB_20260520_181757.csv
-    +-- mc_convergence_Lhist_SNR5dB_20260520_181757.csv
-    +-- mc_convergence_Lhist_SNR10dB_20260520_181757.csv
-    +-- mc_convergence_Lhist_SNR15dB_20260520_181757.csv
-    +-- wb_crb_d2_sweep_20260520_183239.csv
-    +-- wb_crb_geodiv_sweep_20260520_184631.csv
++-- plotting/                         7 publication figure scripts (Phase 3.5 / Sprint B)
+|   +-- fig6_crb_d2_snr.m             Fig 6: sqrt-CRB_r vs SNR, N_RF in {8,16,32,64}, d=2
+|   +-- fig7_crb_geodiv_bw.m          Fig 7: sqrt-CRB_r vs bandwidth, M in {32,64,128}
+|   +-- fig8a_rmse_r_snr.m            Fig 8a: RMSE_r vs SNR, all methods
+|   +-- fig8b_nmse_r_bw.m             Fig 8b: NMSE_r vs bandwidth, all methods
+|   +-- fig9a_rmse_theta_snr.m        Fig 9a: RMSE_theta vs SNR, all methods
+|   +-- fig9b_convpct_snr_b4.m        Fig 9b: WB-CL-KL convergence rate vs SNR
+|   +-- fig10_kl_convergence.m        Fig 10: KL objective delta_L vs iteration
+|
++-- results/                          Production CSV files (Phase 3 / Sprint B complete)
+    +-- paperC_phase35_fig6_crb_d2_v2/
+    |   +-- wb_crb_d2_sweep_20260526_225015_v3.csv      (52 rows x 10 cols)
+    |
+    +-- paperC_phase3_fig7_crb_geodiv_v1/
+    |   +-- wb_crb_geodiv_sweep_20260520_184631.csv      (18 rows x 7 cols)
+    |
+    +-- regime_probe_rhi020/
+    |   +-- mc_snr_sweep_20260528_204613.csv             (65 rows x 24 cols)
+    |
+    +-- paperC_phase35_fig8b_bw_r020_N600/
+    |   +-- mc_bandwidth_sweep_20260529_210446.csv       (40 rows x 24 cols)
+    |
+    +-- paperC_sprint_a_fig10_convergence_r3m/
+        +-- mc_convergence_sweep_20260531_215757.csv     (20 rows x 24 cols)
+        +-- mc_convergence_Lhist_SNR+0dB_20260531_215757.csv   (9431 rows x 4 cols)
+        +-- mc_convergence_Lhist_SNR+5dB_20260531_215757.csv   (9642 rows x 4 cols)
+        +-- mc_convergence_Lhist_SNR+10dB_20260531_215757.csv  (9621 rows x 4 cols)
+        +-- mc_convergence_Lhist_SNR+15dB_20260531_215757.csv  (9663 rows x 4 cols)
 ```
 
 ---
 
 ## Reproducing the paper figures
 
-All figures are generated from the CSVs in `results/`. The table below maps each
-paper figure to the script that generates it and the CSV it reads.
+All figures are generated directly from the CSVs in `results/`. The table below
+maps each paper figure to its plotting script and source CSV.
 
-| Figure | Description | Generating script | Source CSV(s) |
-|--------|-------------|-------------------|---------------|
-| Fig 5  | Compressed-domain CRB vs SNR (d=1,2) | `src/wb_crb_compressed.m` | `wb_crb_d2_sweep_20260520_183239.csv` |
-| Fig 6  | Compression gap: CRB vs N_RF (d=2, multi-path) | `src/wb_crb_compressed.m` | `wb_crb_d2_sweep_20260520_183239.csv` |
-| Fig 7  | Geometric diversity: CRB vs M and B | `src/wb_crb_compressed.m` | `wb_crb_geodiv_sweep_20260520_184631.csv` |
-| Fig 8a | RMSE vs SNR (full range, all methods) | `src/run_monte_carlo_paperC.m` | `mc_snr_sweep_20260511_193038.csv` |
-| Fig 8b | NMSE vs bandwidth (full range, all methods) | `src/run_monte_carlo_paperC.m` | `mc_bandwidth_sweep_20260520_180317.csv` |
-| Fig 10 | Convergence: KL objective vs iteration, 4 SNR | `src/run_monte_carlo_paperC.m` | `mc_convergence_sweep_20260520_181757.csv`, `mc_convergence_Lhist_SNR*dB_20260520_181757.csv` |
+| Figure | Description | Script | Source CSV |
+|--------|-------------|--------|------------|
+| Fig 6 | Compression gap: sqrt-CRB_r vs SNR, N_RF in {8,16,32,64}, d=2 | `plotting/fig6_crb_d2_snr.m` | `results/paperC_phase35_fig6_crb_d2_v2/wb_crb_d2_sweep_20260526_225015_v3.csv` |
+| Fig 7 | Geometric diversity: sqrt-CRB_r vs bandwidth, M in {32,64,128} | `plotting/fig7_crb_geodiv_bw.m` | `results/paperC_phase3_fig7_crb_geodiv_v1/wb_crb_geodiv_sweep_20260520_184631.csv` |
+| Fig 8a | Range RMSE vs SNR, all methods, SNR in [-5,17.5] dB | `plotting/fig8a_rmse_r_snr.m` | `results/regime_probe_rhi020/mc_snr_sweep_20260528_204613.csv` |
+| Fig 8b | Range NMSE vs bandwidth, all methods, B in {100,...,800} MHz | `plotting/fig8b_nmse_r_bw.m` | `results/paperC_phase35_fig8b_bw_r020_N600/mc_bandwidth_sweep_20260529_210446.csv` |
+| Fig 9a | Angle RMSE vs SNR, all methods | `plotting/fig9a_rmse_theta_snr.m` | same as Fig 8a |
+| Fig 9b | WB-CL-KL convergence rate vs SNR (strict tolerance) | `plotting/fig9b_convpct_snr_b4.m` | same as Fig 8a |
+| Fig 10 | Median KL objective delta_L vs iteration, SNR in {0,5,10,15} dB | `plotting/fig10_kl_convergence.m` | `results/paperC_sprint_a_fig10_convergence_r3m/mc_convergence_Lhist_SNR+*dB_20260531_215757.csv` |
 
-**Key verified numerical claims (all CSV-sourced):**
-- B4 (WB-CL-KL) RMSE_r at SNR=10 dB: 0.300 m vs CRB 0.344 m (ratio 0.87x)
-- B4 NMSE_r at B=400 MHz: -32.74 dB
-- B4 convergence rate (full range, SNR=10 dB): 82.5%
-- Total wideband CRB gain at B=400 MHz: +27.793 dB
+Each script prints anchor-verification lines (OK / ANCHOR MISMATCH) to the
+command window before exporting the PDF.
+
+---
+
+## Key verified numerical claims
+
+All values are CSV-sourced and anchor-verified by the plotting scripts.
+
+**Estimator performance (r_hi_fac=0.20, strong near-field regime, N_MC=600):**
+- B4 (WB-CL-KL) RMSE_r at SNR=10 dB: **0.01982 m** vs CRB 0.01991 m (ratio 0.996; CRB-efficient)
+- B4 NMSE_r at B=400 MHz, SNR=10 dB: **-43.16 dB**
+- B4 convergence rate (strict tolerance) at SNR=10 dB: **73.0%** (fail_rate 0.0%)
+- B4 convergence rate at SNR=0 dB: **100%** (all trials converge at low SNR)
+
+**CRB decomposition (B=400 MHz, M=64, N_RF=8, d=1):**
+- Total wideband CRB gain: **+27.793 dB**
   (data diversity: +27.093 dB; geometric diversity: +0.701 dB)
-- Compression gap N_RF=8 vs N_RF=32 at SNR=10 dB: 8.12 dB
+- Compression gap N_RF=8 vs N_RF=32 at SNR=10 dB (d=2): **8.12 dB**
+- Compression gap N_RF=8 vs N_RF=64 at SNR=10 dB (d=2): **11.40 dB**
+
+**Geometric diversity (d=1, SNR=10 dB, theta=35 deg, r=5 m):**
+- CRB gain from B=50 to B=400 MHz (M=64): **9.125 dB**
+- M-doubling gap M=64 to M=128 at B=400 MHz: **12.629 dB**
 
 ---
 
@@ -160,6 +216,40 @@ paper figure to the script that generates it and the CSV it reads.
 | B2 | WB-P-SOMP | Hybrid compressed (N_RF RF chains) |
 | B4 | WB-CL-KL (proposed) | Hybrid compressed (N_RF RF chains) |
 | B5 | WB-DL-OMP | Full-array (M RF chains) |
+
+B3 (WB-BF-SOMP) is defined in the paper but not implemented; its entries in
+the CSVs are NaN placeholders.
+
+---
+
+## System parameters (production run, Phase 3 / Sprint B)
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| f_c | 28 GHz | Carrier frequency |
+| M | 64 | Number of ULA antenna elements |
+| N_RF | 8 | Number of RF chains (compressed) |
+| N | 64 | Number of pilot snapshots |
+| d | 1 | Path count (single-path default) |
+| r_hi_fac | 0.20 | Range window upper factor (r_hi = 0.20 * r_RD) |
+| r_RD | 21.26 m | Rayleigh distance (M=64, f_c=28 GHz) |
+| r range | [0.2126, 4.2525] m | Scene range window (strong near-field) |
+| B | 400 MHz | Bandwidth (SNR sweep default) |
+| K_s | 16 | Number of OFDM subcarriers (at B=400 MHz) |
+| SNR range | -5 to 17.5 dB | 10-point window (2.5 dB step) |
+| N_MC | 600 | Monte Carlo trials per point |
+
+---
+
+## Operating regime note
+
+All estimator results (Figs 8a, 8b, 9a, 9b, 10) are evaluated in the **strong
+near-field regime** defined by r_hi_fac=0.20, placing targets well within the
+Rayleigh distance (r <= 0.20 * r_RD = 4.25 m). This is the physically valid
+and scientifically interesting operating regime for the WB-CL-KL estimator, where
+the Fresnel quadratic phase is large enough for reliable range discrimination.
+CRB figures (Figs 6, 7) are evaluated at representative scene points and are
+not regime-restricted.
 
 ---
 
@@ -175,23 +265,6 @@ paper figure to the script that generates it and the CSV it reads.
 - **Paper A** (beamspace ESPRIT, mmWave sensor arrays):
   https://github.com/rvsenyuva/CovGuided-ESPRIT
   DOI: 10.5281/zenodo.19553631
-
----
-
-## System parameters (default production run)
-
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| f_c | 28 GHz | Carrier frequency |
-| M | 64 | Number of ULA antenna elements |
-| N_RF | 8 | Number of RF chains |
-| N | 64 | Number of pilot snapshots |
-| d | 1 | Element spacing (x lambda/2) |
-| r_RD | 21.26 m | Rayleigh distance |
-| B | 400 MHz | Bandwidth (default) |
-| K_s | 64 | Number of OFDM subcarriers |
-| N_MC | 200 | Monte Carlo trials per SNR point |
-| SNR range | -5 to 15 dB | 5-point sweep |
 
 ---
 

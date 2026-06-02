@@ -1,94 +1,93 @@
 function fig8b_nmse_r_bw()
 %FIG8B_NMSE_R_BW  Publication-quality plot of range NMSE vs bandwidth (Fig 8b).
 %
-%  Produces fig8b_nmse_r_bw.pdf for Paper C (Phase 3.5 / OJ-COMS submission).
+%  Sprint B revision: single-source PR-12 CSV (r_hi_fac=0.20, N_MC=600, 8 BW pts).
+%  The prior 2-CSV merge (PR-6 + PR-9) is SUPERSEDED; use only PR-12.
 %
-%  Source CSVs (BOTH required):
-%    PR-6 original : mc_bandwidth_sweep_20260520_180317.csv  (25 rows x 24 cols)
-%                    BW = {100, 200, 400, 600, 800} MHz
-%    PR-9 append   : mc_bandwidth_sweep_20260526_144912.csv  (15 rows x 24 cols)
-%                    BW = {300, 500, 700} MHz
-%  The script merges both on (B_hz, method) and sorts by B_hz -> 40 rows.
-%
+%  Source CSV : mc_bandwidth_sweep_20260529_210446.csv
+%               (40 rows x 24 cols; 8 BW pts {100:100:800} MHz; N_MC=600)
+%               Located in: src/results/paperC_phase35_fig8b_bw_r020_N600/
 %  Output PDF : fig8b_nmse_r_bw.pdf  (single-column, 8.8 cm x 8.5 cm)
 %
-%  Five curves
-%    B1  WB-BPD     (full-array, open blue circle,       1.5 pt)
-%    B2  WB-P-SOMP  (compressed, filled orange square,   1.5 pt)
-%    B4  WB-CL-KL   (compressed, filled crimson diamond, 2.0 pt) [PROPOSED]
-%    B5  WB-DL-OMP  (full-array, open green triangle,    1.5 pt)
-%    CRB compressed  (black dashed, no markers,           1.0 pt)
+%  Locked anchors (PR-12, CSV-verified):
+%    B4 RMSE_r @ B=400 MHz = 0.019821 m
+%    B4 CRB_r  @ B=400 MHz = 0.019909 m;  B4/CRB = 1.00
+%    B4 NMSE_r @ B=400 MHz = -43.16 dB
+%    CRB data-diversity slope 100->400 MHz = 6.14 dB (Prop1: 6.02)
+%    B4 conv_pct: 99.8% @ B=100 -> 47.8% @ B=800; fail_rate=0% throughout
 %
-%  Markers at every BW point (8 points -- dense enough to show all).
-%  x-axis: B in MHz, linear scale (log would compress the rollover region).
-%  y-axis: NMSE_r in dB.
-%  No title string.
+%  NMSE normalisation:
+%    NMSE_r_dB is read directly from the CSV (already normalised by run_monte_carlo).
+%    CRB converted to NMSE using same formula: NMSE_CRB = 20*log10(CRB_r / r_mean)
+%    where r_mean = (r_lo + r_hi)/2 = (0.20*0.05 + 0.20)*r_RD/2 is NOT used here;
+%    instead NMSE_r_dB column from B4 rows is plotted directly. CRB curve uses
+%    the crb_r_m column from B4 rows + the r_mean of the locked scene.
+%    r_lo = 0.05*r_hi_fac*r_RD = 0.05*0.20*21.2625 = 0.21263 m (r_hi_fac*r_RD*0.05)
+%    r_hi = r_hi_fac*r_RD = 0.20*21.2625 = 4.2525 m
+%    r_mean = (r_lo + r_hi)/2 = (0.21263 + 4.2525)/2 = 2.2326 m
 %
 %  ASCII compliance: no Unicode, no curly quotes, no Greek in strings.
 %  Author  : R. V. Senyuva (Maltepe University)
-%  Date    : 2026-05-26
-%  Version : v1.0  (Phase 3.5 Subtask 3.5.2)
+%  Date    : June 2026
+%  Version : v2.0  (Sprint B -- single PR-12 CSV, 8-pt, r_hi_fac=0.20)
 
 % =========================================================================
-%  1.  LOCATE BOTH CSVs
+%  1.  LOCATE CSV
 % =========================================================================
+csv_name   = 'mc_bandwidth_sweep_20260529_210446.csv';
 script_dir = fileparts(mfilename('fullpath'));
 
-csv_orig_name   = 'mc_bandwidth_sweep_20260520_180317.csv';
-csv_append_name = 'mc_bandwidth_sweep_20260526_144912.csv';
-
-% Original CSV: repo-root results\ (two levels up from src\plotting\)
-csv_orig = fullfile(script_dir, '..', '..', 'results', ...
-                    'paperC_phase3_fig8b_bw_sweep_v1', csv_orig_name);
-
-% Append CSV: src\results\ (one level up from src\plotting\)
-csv_app  = fullfile(script_dir, '..', 'results', ...
-                    'fig8b_bw_append_v2', csv_append_name);
-
-% Fallback: same directory as script (manual copy)
-if ~isfile(csv_orig), csv_orig = fullfile(script_dir, csv_orig_name); end
-if ~isfile(csv_app),  csv_app  = fullfile(script_dir, csv_append_name); end
-
-assert(isfile(csv_orig), ['fig8b: original CSV not found: ' csv_orig]);
-assert(isfile(csv_app),  ['fig8b: append CSV not found: '   csv_app]);
-fprintf('fig8b: original CSV : %s\n', csv_orig);
-fprintf('fig8b: append  CSV  : %s\n', csv_app);
+% Primary: src/results/paperC_phase35_fig8b_bw_r020_N600/
+csv_path = fullfile(script_dir, '..', 'results', ...
+    'paperC_phase35_fig8b_bw_r020_N600', csv_name);
+if ~isfile(csv_path)
+    % Fallback: same folder as script
+    csv_path = fullfile(script_dir, csv_name);
+end
+assert(isfile(csv_path), ...
+    ['fig8b: CSV not found. Last tried: ' csv_path]);
+fprintf('fig8b: reading %s\n', csv_path);
 
 % =========================================================================
-%  2.  READ AND MERGE
+%  2.  READ CSV AND ANCHOR VERIFICATION
 % =========================================================================
-T_orig = readtable(csv_orig, 'TextType', 'string');
-T_app  = readtable(csv_app,  'TextType', 'string');
-T = [T_orig; T_app];   % vertical concat; sort done per-method below
+T = readtable(csv_path, 'TextType', 'string');
 
     function [bv, nv, cv] = extract(T, mname)
         rows = T(strcmp(T.method, mname), :);
         rows = sortrows(rows, 'B_hz');
-        bv = rows.B_hz / 1e6;   % Hz -> MHz
+        bv = rows.B_hz / 1e6;    % Hz -> MHz
         nv = rows.NMSE_r_dB;
         cv = rows.crb_r_m;
     end
 
-[bw_B1, nmse_B1, ~    ] = extract(T, 'WB-BPD');
-[bw_B2, nmse_B2, ~    ] = extract(T, 'WB-P-SOMP');
-[bw_B4, nmse_B4, crb  ] = extract(T, 'WB-CL-KL');
-[bw_B5, nmse_B5, ~    ] = extract(T, 'WB-DL-OMP');
+[bw_B1, nmse_B1, ~  ] = extract(T, 'WB-BPD');
+[bw_B2, nmse_B2, ~  ] = extract(T, 'WB-P-SOMP');
+[bw_B4, nmse_B4, crb] = extract(T, 'WB-CL-KL');
+[bw_B5, nmse_B5, ~  ] = extract(T, 'WB-DL-OMP');
 
-% CRB in dB relative to scene-average r^2 is not directly available;
-% plot sqrt-CRB as NMSE: NMSE_CRB = 20*log10(CRB_r / mean(r_true))
-% However, the most consistent comparison is to plot the CRB_r column
-% converted to NMSE using the same normalisation as the MC results.
-% The MC uses NMSE_r_dB = 20*log10(RMSE_r / r_true_mean).
-% r_true is drawn uniformly from [r_lo, r_hi] = [1.0631, 21.2625] m
-% -> E[r] = (1.0631 + 21.2625)/2 = 11.1628 m.
-r_mean = 11.1628;   % m  (scene-average range for NMSE normalisation)
-crb_nmse = 20*log10(crb / r_mean);   % compressed CRB as NMSE_r (dB)
+% Anchor verification at B=400 MHz
+idx400 = abs(bw_B4 - 400) < 1e-6;
+v_nmse = nmse_B4(idx400);  v_crb = crb(idx400);
+fprintf('fig8b: B4 NMSE_r @ B=400: %.4f dB  (anchor -43.16) %s\n', ...
+    v_nmse, ok_str(abs(v_nmse - (-43.1561)) < 0.5));
+fprintf('fig8b: B4 CRB_r  @ B=400: %.6f m   (anchor 0.019909) %s\n', ...
+    v_crb,  ok_str(abs(v_crb - 0.019909) < 1e-4));
+
+% CRB NMSE curve (B4 rows only; normalise by scene-average r)
+% r_hi_fac=0.20: r_lo = 0.05*r_hi_fac*r_RD, r_hi = r_hi_fac*r_RD
+r_hi_fac = 0.20;  r_RD = 21.2625;  r_hi_frac_lo = 0.05;
+r_lo   = r_hi_frac_lo * r_hi_fac * r_RD;   % 0.21263 m
+r_hi   = r_hi_fac * r_RD;                   % 4.2525 m
+r_mean = (r_lo + r_hi) / 2;                 % 2.23257 m
+fprintf('fig8b: r_mean for CRB NMSE normalisation = %.5f m\n', r_mean);
+crb_nmse = 20 * log10(crb / r_mean);        % CRB as NMSE_r (dB)
 
 n_pts = numel(bw_B4);
-fprintf('fig8b: %d BW points loaded after merge.\n', n_pts);
+fprintf('fig8b: %d BW points loaded.\n', n_pts);
 
 % =========================================================================
-%  3.  STYLE  (Phase 3.5 Plan Section 2)
+%  3.  STYLE
 % =========================================================================
 c_B1  = [0.0000 0.4470 0.7410];
 c_B2  = [0.8500 0.3250 0.0980];
@@ -98,12 +97,10 @@ c_CRB = [0.0000 0.0000 0.0000];
 
 lw_std = 1.5;  lw_B4 = 2.0;  lw_CRB = 1.0;
 ms_std = 8;    ms_B4 = 9;
-
-% All 8 BW points get markers (8 pts -- not overcrowded)
-mi = 1:n_pts;
+mi = 1:n_pts;   % all 8 BW points get markers
 
 % =========================================================================
-%  4.  FIGURE SETUP  (identical dimensions to Figs 8a / 9a)
+%  4.  FIGURE SETUP (8.8 cm x 8.5 cm; legend below axes)
 % =========================================================================
 fig_w = 8.8;
 fig_h = 8.5;
@@ -153,13 +150,14 @@ hold(ax, 'off');
 %  6.  AXES FORMATTING
 % =========================================================================
 ax.XLim    = [50 850];
-ax.XTick   = [100 200 300 400 500 600 700 800];
-ax.YScale  = 'linear';   % NMSE already in dB -- linear axis
+ax.XTick   = 100:100:800;
+ax.YScale  = 'linear';
 
-% Set y-limits to cover all curves with some margin
+% Auto y-limits with margin
 all_nmse = [nmse_B1; nmse_B2; nmse_B4; nmse_B5; crb_nmse];
-y_lo = floor(min(all_nmse(isfinite(all_nmse))) / 5) * 5 - 5;
-y_hi = ceil( max(all_nmse(isfinite(all_nmse))) / 5) * 5 + 5;
+all_nmse = all_nmse(isfinite(all_nmse));
+y_lo = floor(min(all_nmse) / 5) * 5 - 5;
+y_hi = ceil( max(all_nmse) / 5) * 5 + 5;
 ax.YLim = [y_lo y_hi];
 
 ax.FontSize = 8;
@@ -176,7 +174,7 @@ xlabel(ax, '$B$ [MHz]',      'Interpreter', 'latex', 'FontSize', 9);
 ylabel(ax, 'NMSE$_r$ [dB]',  'Interpreter', 'latex', 'FontSize', 9);
 
 % =========================================================================
-%  7.  LEGEND  -- 2-column, outside below axes, aligned with x-axis span
+%  7.  LEGEND (2-column, below axes, aligned with x-axis span)
 % =========================================================================
 leg = legend(ax, ...
     [h_B1, h_B2, h_B4, h_B5, h_CRB], ...
@@ -193,23 +191,22 @@ leg = legend(ax, ...
 
 drawnow;
 
-ax_pos   = ax.Position;
-ax_left  = ax_pos(1);
-ax_width = ax_pos(3);
-ax_bot   = ax_pos(2);
-
+ax_pos     = ax.Position;
 leg_h      = leg.Position(4);
 gap        = 0.10;
-leg_bottom = ax_bot - gap - leg_h;
+leg_bottom = ax_pos(2) - gap - leg_h;
 leg_bottom = max(leg_bottom, 0.01);
-
-leg.Position = [ax_left, leg_bottom, ax_width, leg_h];
+leg.Position = [ax_pos(1), leg_bottom, ax_pos(3), leg_h];
 
 % =========================================================================
 %  8.  EXPORT
 % =========================================================================
-out_pdf = 'fig8b_nmse_r_bw.pdf';
+out_pdf = fullfile(script_dir, 'fig8b_nmse_r_bw.pdf');
 print(fig, '-dpdf', '-painters', out_pdf);
 fprintf('fig8b: exported to %s\n', out_pdf);
 
 end  % function fig8b_nmse_r_bw
+
+function s = ok_str(flag)
+if flag, s = 'OK'; else, s = '*** ANCHOR MISMATCH ***'; end
+end
