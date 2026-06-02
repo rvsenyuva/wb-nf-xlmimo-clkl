@@ -54,6 +54,14 @@ wb_clkl_toy_test_v2_diag.csv
 C3_diagnostic_results.csv
 
 # ------------------------------------------------------------------
+# Deprecated result folder
+# ------------------------------------------------------------------
+results/fig8a_snr_v2/
+results/fig8b_bw_append_v2/
+results/paperC_phase35_fig8b_bw_r020_v2/
+results/regime_probe_rhi030/
+
+# ------------------------------------------------------------------
 # Generated figure outputs (always regenerate from CSVs)
 # ------------------------------------------------------------------
 *.png
