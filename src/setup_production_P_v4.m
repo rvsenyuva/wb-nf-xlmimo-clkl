@@ -1,4 +1,4 @@
-function P = setup_production_P_v4(varargin)
+function P = setup_production_P(varargin)
 %SETUP_PRODUCTION_P  Production parameter struct for Paper C Phase 3.
 %
 %  P = setup_production_P()
@@ -199,11 +199,36 @@ switch sweep_mode
         % using Delta_f_fixed = 25 MHz (Lesson L29).
 
     case 'convergence'
-        % Fixed scene at theta=35 deg, r=5.0 m < 0.5*r_RD in both modes.
+        % Fixed scene: theta=35 deg, r=3.0 m.
+        % r=3.0 m is inside the locked operating box [1.063, 4.2525] m
+        % (r_hi_fac=0.20, r_RD=21.2625 m).  Prior runs used r=5.0 m which
+        % falls outside this box (5.0 > 4.2525 m) -- consistency fix (Sprint A).
         P.convergence_fixed_scene = true;
         P.conv_theta = 35 * pi/180;   % [rad]
-        P.conv_r     = 5.0;           % [m]
+        P.conv_r     = 3.0;           % [m]  -- was 5.0 (Sprint A fix)
 
+end
+
+% =========================================================================
+%  CONVERGENCE-SCENE FRESNEL CHECK (P19: explicit post-override print + assert)
+% =========================================================================
+% This block runs AFTER the switch so P.conv_r reflects the authoritative value
+% set above.  The main Fresnel check (Section 12) uses r_hi_fac and is NOT
+% sufficient for the fixed convergence scene.  Print and assert here so that
+% any future change to P.conv_r produces an immediate programmatic failure
+% rather than a silent out-of-regime run.
+if strcmp(sweep_mode, 'convergence')
+    kappa_conv    = pi * P.d_ant^2 / P.lambda_c ...
+                    * sin(P.conv_theta)^2 / P.conv_r;
+    quad_phase_conv = kappa_conv * ((P.M - 1) / 2)^2;
+    fprintf('  Conv scene    : theta=%.1f deg, r=%.2f m\n', ...
+        P.conv_theta * 180/pi, P.conv_r);
+    fprintf('  Fresnel (conv): kappa*m_bar_max^2 = %.4f rad', quad_phase_conv);
+    assert(quad_phase_conv > 0.25, ...
+        ['setup_production_P: conv_r too large -- insufficient Fresnel ' ...
+         'curvature at fixed convergence scene (quad_phase=%.4f < 0.25).'], ...
+        quad_phase_conv);
+    fprintf('  [PASS]\n');
 end
 
 % =========================================================================
@@ -226,6 +251,15 @@ P.wb_gen_write_csv = false;
 %   To re-enable for single-realisation debugging:
 %     P = setup_production_P(...); P.bpd_write_csv = true;
 P.bpd_write_csv = false;
+
+% use_riviello_snr_axis = false: when true, the SNR axis in the 'snr'
+%   sweep is replaced by an empirical per-UT distribution drawn from the
+%   3GPP UMi path-loss + shadow-fading model (Section VI-D robustness
+%   experiment, Fig. 11).  Requires riviello_snr_axis.m on the MATLAB
+%   path.  See riviello_snr_axis.m for the full parameter description.
+%   Default: false (backward-compatible with all existing runs).
+%   Session 4.9 (D1 execution).
+P.use_riviello_snr_axis = false;
 
 % =========================================================================
 %  SECTION 12 -- Console summary and sanity assertions

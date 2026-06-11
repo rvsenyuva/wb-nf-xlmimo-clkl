@@ -77,6 +77,42 @@ if ~exist(out_dir, 'dir')
 end
 
 % =========================================================================
+%  RIVIELLO SNR-AXIS PRE-PROCESSING (Session 4.9, D1)
+%  When P.use_riviello_snr_axis is true AND sweep_type is 'snr':
+%    - Draw N_MC per-UT SNR values from the 3GPP UMi path-loss /
+%      shadow-fading model via riviello_snr_axis.m.
+%    - Sort the draw to produce a CDF-ordered SNR axis for Fig. 11.
+%    - Store the sorted vector in P.snr_per_trial_vec (N_MC x 1).
+%    - Override sweep_vec to a single point [median SNR] so that the
+%      outer loop runs exactly once and the CRB is evaluated at the
+%      representative operating point.
+%  For all other sweep types, or when the flag is false / absent,
+%  this block is a no-op and all downstream code is unchanged.
+% =========================================================================
+if isfield(P, 'use_riviello_snr_axis') && P.use_riviello_snr_axis
+    if ~strcmp(sweep_type, 'snr')
+        warning(['run_monte_carlo_paperC: use_riviello_snr_axis=true is ' ...
+            'only valid for sweep_type=''snr''. Flag ignored for ''%s''.'], ...
+            sweep_type);
+        P.use_riviello_snr_axis = false;
+    else
+        fprintf('[MC] Riviello mode: drawing %d per-UT SNR values...\n', N_MC);
+        [snr_per_ut_raw, snr_info_riv] = riviello_snr_axis(P, N_MC);
+        snr_axis_sorted = sort(snr_per_ut_raw);   % N_MC x 1, CDF order
+        P.snr_per_trial_vec = snr_axis_sorted;    % broadcast into parfor
+        P.snr_info_riviello = snr_info_riv;        % saved for reporting
+        sweep_vec = median(snr_axis_sorted);       % single CRB eval point
+        fprintf('[MC] Riviello SNR: median=%.2f dB  p10=%.2f dB  p90=%.2f dB\n', ...
+            snr_info_riv.median_snr_dB, snr_info_riv.p10_snr_dB, ...
+            snr_info_riv.p90_snr_dB);
+        fprintf('[MC] Indoor: %.1f%%   LOS: %.1f%%\n', ...
+            snr_info_riv.pct_indoor, snr_info_riv.pct_los);
+    end
+else
+    P.use_riviello_snr_axis = false;   % normalise absent field
+end
+
+% =========================================================================
 %  OUTPUT CSV PATH
 % =========================================================================
 date_str = datestr(now, 'yyyymmdd_HHMMSS');
@@ -130,10 +166,16 @@ for s = 1 : n_sweep
 
     elseif strcmp(sweep_type, 'convergence')
         SNR_dB_s = sweep_vec(s);
-        % Fixed scene: theta = 35 deg, r = 5 m (reproducible convergence)
+        % Fixed scene geometry is authoritative in P (set by setup_production_P_v4
+        % via P.conv_theta and P.conv_r).  DO NOT reassign conv_r/conv_theta here
+        % -- doing so overrides the setup value and breaks the single source of
+        % truth.  Sprint A fix: prior hardcode of r=5.0 m here was the proximate
+        % cause of the r_hi_fac inconsistency (5.0 m > r_hi=4.2525 m at 0.20).
         P_s.convergence_fixed_scene = true;
-        P_s.conv_theta = 35 * pi/180;
-        P_s.conv_r     = 5.0;
+        % P.conv_theta and P.conv_r already set and Fresnel-verified by
+        % setup_production_P_v4.  Print to confirm at runtime:
+        fprintf('[MC] convergence scene: theta=%.1f deg, r=%.2f m\n', ...
+            P_s.conv_theta * 180/pi, P_s.conv_r);
     end
 
     fprintf('[MC] sweep point %d/%d  (%s=%.4g)\n', s, n_sweep, sweep_type, sweep_vec(s));
@@ -191,8 +233,15 @@ for s = 1 : n_sweep
 
     parfor mc = 1 : N_MC
 
+        % Select per-trial SNR: Riviello CDF-ordered draw or fixed sweep point
+        if P_s.use_riviello_snr_axis
+            SNR_dB_mc = P_s.snr_per_trial_vec(mc);   % mc-th sorted UT SNR [dB]
+        else
+            SNR_dB_mc = SNR_dB_s;                     % fixed sweep-point SNR [dB]
+        end
+
         % Per-realisation result struct (parfor accumulation)
-        res = run_one_realisation(P_s, SNR_dB_s, mc_seed_base + mc);
+        res = run_one_realisation(P_s, SNR_dB_mc, mc_seed_base + mc);
 
         th_B1_all(:, mc) = res.th_B1;
         r_B1_all(:, mc)  = res.r_B1;
