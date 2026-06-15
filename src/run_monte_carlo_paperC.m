@@ -113,6 +113,31 @@ else
 end
 
 % =========================================================================
+%  EXACT-SPHERE CHANNEL FLAG (Session 4.10, D2)
+%  When P.use_quadriga_channel is true AND sweep_type is 'snr':
+%    - run_one_realisation calls wb_channel_gen_exact_sphere_nf instead of
+%      wb_channel_gen_ofdm_nf for each Monte Carlo realisation.
+%    - Channels use exact 3-D spherical-wave distances (no Fresnel approx).
+%    - WB-CL-KL estimator is unchanged; receives R_hat_cell as always.
+%    - CRB is computed at nominal USW geometry (same as Sec. V).
+%    - The mismatch penalty measures the Fresnel approximation error only.
+%    - Flag name retained as use_quadriga_channel for backward compatibility.
+%    - Incompatible with bandwidth/convergence sweep types (guard below).
+% =========================================================================
+if ~isfield(P, 'use_quadriga_channel')
+    P.use_quadriga_channel = false;
+end
+if P.use_quadriga_channel && ~strcmp(sweep_type, 'snr')
+    warning(['run_monte_carlo_paperC: use_quadriga_channel=true is only ' ...
+        'valid for sweep_type=''snr''. Flag ignored for ''%s''.'], sweep_type);
+    P.use_quadriga_channel = false;
+end
+if P.use_quadriga_channel
+    fprintf('[MC] Exact-sphere mode: channels use exact 3-D spherical-wave distances\n');
+    fprintf('[MC]   Estimator trained on Fresnel approx -- measures approximation error\n');
+end
+
+% =========================================================================
 %  OUTPUT CSV PATH
 % =========================================================================
 date_str = datestr(now, 'yyyymmdd_HHMMSS');
@@ -371,8 +396,22 @@ function res = run_one_realisation(P, SNR_dB, mc_seed)
 rng(mc_seed, 'twister');
 
 % ---- Generate one wideband channel realisation -------------------------
-[X_full, Y_full, ~, theta_gen, r_gen, p_gen, N0_gen, W_comb] = ...
-    wb_channel_gen_ofdm_nf(P, SNR_dB);
+% Dispatch: USW/Fresnel (primary) or Exact-Sphere (D2 mismatch experiment).
+if isfield(P, 'use_quadriga_channel') && P.use_quadriga_channel
+    % Exact spherical-wave path: same output contract as primary generator.
+    % Channels use exact 3-D distances (no Fresnel approximation).
+    % See wb_channel_gen_exact_sphere_nf.m for scientific rationale.
+    [X_full, R_hat_cell_qd, chan_info] = wb_channel_gen_exact_sphere_nf(P, SNR_dB);
+    theta_gen = chan_info.theta_true;
+    r_gen     = chan_info.r_true;
+    N0_gen    = chan_info.N0_used;
+    W_comb    = chan_info.W_comb;
+    qd_mode   = true;
+else
+    [X_full, Y_full, ~, theta_gen, r_gen, p_gen, N0_gen, W_comb] = ...
+        wb_channel_gen_ofdm_nf(P, SNR_dB);
+    qd_mode = false;
+end
 
 % Override to fixed scene for convergence sweep
 if isfield(P, 'convergence_fixed_scene') && P.convergence_fixed_scene
@@ -393,11 +432,17 @@ res.theta_true = theta_gen;
 res.r_true     = r_gen;
 
 % ---- Form compressed covariance cell (for B2 and B4) ------------------
-R_hat_cell = cell(P.K_s, 1);
-for k = 1 : P.K_s
-    Yk            = Y_full(:, :, k);            % N_RF x N
-    R_hat_cell{k} = (Yk * Yk') / P.N;
-    R_hat_cell{k} = (R_hat_cell{k} + R_hat_cell{k}') / 2;  % enforce Hermitian
+% Exact-sphere mode: R_hat_cell already formed inside wb_channel_gen_exact_sphere_nf.
+% USW mode: form from Y_full here (standard path).
+if qd_mode
+    R_hat_cell = R_hat_cell_qd;   % pre-formed by exact-sphere generator
+else
+    R_hat_cell = cell(P.K_s, 1);
+    for k = 1 : P.K_s
+        Yk            = Y_full(:, :, k);            % N_RF x N
+        R_hat_cell{k} = (Yk * Yk') / P.N;
+        R_hat_cell{k} = (R_hat_cell{k} + R_hat_cell{k}') / 2;  % enforce Hermitian
+    end
 end
 
 % ---- B1: WB-BPD (full-array) ------------------------------------------

@@ -85,7 +85,7 @@ mi = 1:n_pts;   % all points get markers (10 pts -- not overcrowded)
 %  4.  FIGURE SETUP (8.8 cm x 6.5 cm; self-contained legend inside axes)
 % =========================================================================
 fig_w = 8.8;
-fig_h = 6.5;
+fig_h = 8.5;
 
 fig = figure('Units', 'centimeters', ...
              'Position', [2 2 fig_w fig_h], ...
@@ -96,7 +96,7 @@ fig = figure('Units', 'centimeters', ...
 
 ax = axes('Parent', fig, ...
           'Units', 'normalized', ...
-          'Position', [0.13 0.15 0.84 0.79]);
+          'Position', [0.13 0.37 0.84 0.59]);
 
 % =========================================================================
 %  5.  PLOT CURVE
@@ -137,12 +137,20 @@ ylabel(ax, 'Conv. rate [\%]',   'Interpreter', 'latex', 'FontSize', 9);
 %      consistency with companion Fig 9a and manuscript style).
 %  Note text references the strict-tolerance framing explicitly.
 % =========================================================================
-legend(ax, h_conv, ...
+lgd = legend(ax, h_conv, ...
     'WB-CL-KL [prop.] (strict tol.)', ...
     'Interpreter', 'latex', ...
     'FontSize', 7, ...
-    'Location', 'southwest', ...
+    'Orientation', 'horizontal', ...
     'Box', 'on');
+lgd.Units = 'normalized';
+%lgd.Position = [0.15, 0.01, 0.70, 0.07];
+ax_pos     = ax.Position;
+lgd_h      = lgd.Position(4);
+gap        = 0.10;
+lgd_bottom = ax_pos(2) - gap - lgd_h;
+lgd_bottom = max(lgd_bottom, 0.01);
+lgd.Position = [ax_pos(1), lgd_bottom, ax_pos(3), lgd_h];
 
 % =========================================================================
 %  8.  EXPORT

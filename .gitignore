@@ -86,3 +86,43 @@ Thumbs.db
 *.key
 *.pem
 *.env
+
+# ------------------------------------------------------------------
+# D2 dropout debris (Session 4.10, dropped mismatch experiment)
+# ------------------------------------------------------------------
+plotting/fig12_exactsphere_mismatch.m
+results/exactsphere_mismatch/
+results/quadriga_mismatch/
+src/wb_channel_gen_exact_sphere_nf.m
+src/wb_channel_gen_quadriga_nf.m
+src/wb_crb_d2_sweep_driver_phase35.m
+
+# ------------------------------------------------------------------
+# Redundant toy test copy in src/ (canonical copy lives in tests/)
+# ------------------------------------------------------------------
+src/wb_clkl_toy_test_v2.m
+
+# ------------------------------------------------------------------
+# GLOBECOM-era and miscellaneous scripts at repo root
+# ------------------------------------------------------------------
+driver_script_CRB_sweep.m
+driver_script_geometric_diversity_sweep.m
+loc_compute_fim_full.m
+loc_compute_fim_single.m
+script_task_12_6.m
+wb_clkl_driver_may26.m
+wb_crb_C3_diagnostic.m
+
+# ------------------------------------------------------------------
+# Loose diagnostic CSVs at repo root (not production results)
+# ------------------------------------------------------------------
+fig2_crb_vs_bw.csv
+fig3_crb_vs_range.csv
+fig4_crb_vs_nrf.csv
+wb_channel_gen_diag.csv
+simulation_parameters.csv
+
+# ------------------------------------------------------------------
+# Local archive folder (experimental scripts, never for release)
+# ------------------------------------------------------------------
+archive/
