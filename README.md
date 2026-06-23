@@ -4,7 +4,7 @@
 Cross-Subcarrier KL Covariance Fitting with OFDM Fresnel Model**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20706791.svg)](https://doi.org/10.5281/zenodo.20706791)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20356436.svg)](https://doi.org/10.5281/zenodo.20356436)
 
 MATLAB simulation code and production CSV results for the journal manuscript
 ``Wideband Near-Field Channel Estimation Under Hybrid Compression:
@@ -23,7 +23,7 @@ If you use this code or data, please cite:
              Cross-Subcarrier {KL} Covariance Fitting with {OFDM} {F}resnel Model},
   journal = {IEEE Transactions on Wireless Communications},
   year    = {2026},
-  note    = {Under review. Zenodo: \url{https://doi.org/10.5281/zenodo.20706791}}
+  note    = {Under review. Zenodo: \url{https://doi.org/10.5281/zenodo.20356436}}
 }
 ```
 
