@@ -592,10 +592,8 @@ H_true = zeros(M, P.d, K_s);
 for k = 1 : K_s
     alpha_k = P.alpha_k_vec(k);
     A_k     = zeros(M, P.d);
-    for l = 1 : P.d
-        omega_l  = (2*pi * P.d_ant / P.lambda_c) * cos(theta_true(l));
-        kappa_l  = (pi  * P.d_ant^2 / P.lambda_c) * sin(theta_true(l))^2 / r_true(l);
-        A_k(:,l) = exp(1j*alpha_k*(omega_l*m_bar - kappa_l*m_bar.^2)) * sqrt(M);
+    for l = 1:P.d
+        A_k(:,l) = wb_nf_fresnel_steer(theta_true(l), 1/r_true(l), alpha_k, P) * sqrt(M);
     end
     H_true(:,:,k) = A_k;
     S_k = sqrt(p_true(1)) * (randn(P.d, N) + 1j*randn(P.d, N)) / sqrt(2);
