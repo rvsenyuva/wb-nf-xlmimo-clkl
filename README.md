@@ -8,7 +8,9 @@ Cross-Subcarrier KL Covariance Fitting with OFDM Fresnel Model**
 
 MATLAB simulation code and production CSV results for the journal manuscript
 ``Wideband Near-Field Channel Estimation Under Hybrid Compression:
-Cross-Subcarrier KL Covariance Fitting With OFDM Fresnel Model'' (under review).
+Cross-Subcarrier KL Covariance Fitting With OFDM Fresnel Model''.
+
+This manuscript is undergoing revision.
 
 ---
 
@@ -17,13 +19,13 @@ Cross-Subcarrier KL Covariance Fitting With OFDM Fresnel Model'' (under review).
 If you use this code or data, please cite:
 
 ```bibtex
-@article{senyuva2026wbnf,
+@unpublished{senyuva2026wbnf,
   author  = {{\c{S}}enyuva, R. Volkan},
   title   = {Wideband Near-Field Channel Estimation under Hybrid Compression:
              Cross-Subcarrier {KL} Covariance Fitting with {OFDM} {F}resnel Model},
-  journal = {IEEE Transactions on Wireless Communications},
-  year    = {2026},
-  note    = {Under review. Zenodo: \url{https://doi.org/10.5281/zenodo.20356436}}
+  note    = {Manuscript in preparation for submission.
+             Zenodo: \url{https://doi.org/10.5281/zenodo.20356436}},
+  year    = {2026}
 }
 ```
 
@@ -197,28 +199,22 @@ command window before exporting the PDF.
 
 ## Key verified numerical claims
 
-All values are CSV-sourced and anchor-verified by the plotting scripts.
+Detailed CRB-attainment figures for the compressed-domain estimator are
+being re-derived under a geometry-matched evaluation and will be updated
+here once that work completes. Earlier reported figures for the
+CRB-attainment ratio and for the "geometric diversity" decomposition have
+been withdrawn; see Corrections below.
 
 **Estimator performance (r_hi_fac=0.20, strong near-field regime, N_MC=600):**
-- B4 (WB-CL-KL) RMSE_r at SNR=10 dB: **0.01982 m** vs CRB 0.01991 m (ratio 0.996; CRB-efficient)
-- B4 NMSE_r at B=400 MHz, SNR=10 dB: **-43.16 dB**
+- B4 (WB-CL-KL) NMSE_r at B=400 MHz, SNR=10 dB: **-43.16 dB**
 - B4 convergence rate (strict tolerance) at SNR=10 dB: **73.0%** (fail_rate 0.0%)
 - B4 convergence rate at SNR=0 dB: **100%** (all trials converge at low SNR)
-- B4/CRB at median deployment SNR (9.6 dB, 3GPP UMi): **0.959** (Fig 8 robustness gate)
 
-**CRB decomposition (B=400 MHz, M=64, N_RF=8, d=1):**
-- Total wideband CRB gain: **+27.793 dB**
-  (data diversity: +27.093 dB; geometric diversity: +0.701 dB)
-- Compression gap N_RF=8 vs N_RF=32 at SNR=10 dB (d=2): **8.12 dB**
-- Compression gap N_RF=8 vs N_RF=64 at SNR=10 dB (d=2): **11.40 dB**
-
-**CRB absolute values at B=400 MHz, SNR=10 dB, r=5 m:**
+**CRB absolute values (compressed-domain, full-array reference), B=400 MHz, SNR=10 dB, r=5 m:**
 - sqrt-CRB_r (narrowband, B→0): **11.948 mm**
 - sqrt-CRB_r (wideband, B=400 MHz): **487.12 µm**
-
-**Geometric diversity (d=1, SNR=10 dB, theta=35 deg, r=5 m):**
-- CRB gain from B=50 to B=400 MHz (M=64): **9.125 dB**
-- M-doubling gap M=64 to M=128 at B=400 MHz: **12.629 dB**
+- Compression gap N_RF=8 vs N_RF=32 at SNR=10 dB (d=2): **8.12 dB**
+- Compression gap N_RF=8 vs N_RF=64 at SNR=10 dB (d=2): **11.40 dB**
 
 ---
 
@@ -246,8 +242,9 @@ the CSVs are NaN placeholders.
 | N | 64 | Number of pilot snapshots |
 | d | 1 | Path count (single-path default) |
 | r_hi_fac | 0.20 | Range window upper factor (r_hi = 0.20 × r_RD) |
+| r_lo_fac | 0.05 | Range window lower factor (r_lo = 0.05 × r_RD) |
 | r_RD | 21.26 m | Rayleigh distance (M=64, f_c=28 GHz) |
-| r range | [0.2126, 4.2525] m | Scene range window (strong near-field) |
+| r range | [1.0631, 4.2525] m | Scene range window (strong near-field) |
 | B | 400 MHz | Bandwidth (SNR sweep default) |
 | K_s | 16 | Number of OFDM subcarriers (at B=400 MHz) |
 | SNR range | -5 to 17.5 dB | 10-point window (2.5 dB step) |
@@ -266,6 +263,29 @@ quadratic phase is large enough for reliable range discrimination. CRB figures
 (Figs 6–7) are evaluated at representative scene points. Fig 8 extends the
 SNR sweep to [-20, +35] dB and overlays the 3GPP UMi empirical SNR distribution
 (N_UT=2000, median 9.6 dB) for robustness verification.
+
+---
+
+## Corrections
+
+**2026-09 (date of posting).** The following items in earlier versions of
+this repository's README and in the manuscript drafts it accompanies have
+been withdrawn or corrected:
+
+- The reported CRB-attainment ratio (RMSE / sqrt(CRB)) has been withdrawn
+  pending re-evaluation under a geometry-matched CRB.
+- The "geometric diversity" decomposition and its associated figures have
+  been withdrawn. The underlying full-array wideband invariance result is
+  retained in corrected form; see the GLOBECOM 2026 camera-ready
+  (arXiv:2604.08531) for the current statement.
+- The range-box row has been corrected: the lower factor is r_lo_fac = 0.05
+  (r range [1.0631, 4.2525] m at r_RD = 21.2625 m), not r_lo_fac = 0.01 as
+  previously stated.
+- The statement that this manuscript was under review at IEEE TWC has been
+  removed; that review concluded.
+
+No mechanism or derivation for these corrections is given here; see the
+manuscript, once resubmitted, for the full technical treatment.
 
 ---
 
