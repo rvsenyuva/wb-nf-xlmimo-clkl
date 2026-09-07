@@ -153,7 +153,12 @@ Delta_f_fixed = 25e6;   % 25 MHz fixed subcarrier spacing (Lesson L29)
 %  GLOBAL RNG SEED (once before outer loop; NOT inside parfor)
 % =========================================================================
 rng(42, 'twister');
-mc_seed_base = 1000;   % per-realisation seed = mc_seed_base + mc
+if isfield(P, 'mc_seed_base') && ~isempty(P.mc_seed_base)
+    mc_seed_base = P.mc_seed_base;   % T-51: caller-supplied block base
+else
+    mc_seed_base = 1000;             % published default (Fig. 1 / Fig. 5 runs)
+end
+fprintf('[MC] mc_seed_base = %d\n', mc_seed_base);
 
 % =========================================================================
 %  CSV HEADER
@@ -364,6 +369,34 @@ for s = 1 : n_sweep
     append_csv_row(csv_path, sweep_type, sweep_vec(s), SNR_dB_s, P_s, N_MC, ...
         'WB-DL-OMP', 'X_full',    RMSE_theta_B5, RMSE_r_B5, NMSE_r_B5_dB, ...
         fail_B5, rt_B5_mean, NaN, NaN, NaN, NaN, NaN);
+
+    % ------------------------------------------------------------------
+    %  5b. Per-trial dump (T-51 / T-52).  OFF by default; additive only.
+    % ------------------------------------------------------------------
+    if isfield(P_s, 'dump_trials') && P_s.dump_trials
+        assert(P_s.d == 1, ...
+            'dump_trials: per-trial dump is defined for d = 1 only.');
+        trial_csv = fullfile(out_dir, ...
+            sprintf('mc_%s_trials_%s.csv', sweep_type, date_str));
+        if ~isfile(trial_csv)
+            fid_t = fopen(trial_csv, 'w');
+            fprintf(fid_t, ['sweep_value,SNR_dB,mc_seed_base,mc_idx,mc_seed,' ...
+                'theta_true_deg,r_true_m,r_B4_m,err_r_B4_m,' ...
+                'n_iter,converged\n']);
+            fclose(fid_t);
+        end
+        fid_t = fopen(trial_csv, 'a');
+        for mc_w = 1 : N_MC
+            fprintf(fid_t, ...
+                '%.6g,%.6g,%d,%d,%d,%.10g,%.10g,%.10g,%.10g,%g,%g\n', ...
+                sweep_vec(s), SNR_dB_s, mc_seed_base, mc_w, ...
+                mc_seed_base + mc_w, ...
+                th_true_all(1,mc_w) * 180/pi, r_true_all(1,mc_w), ...
+                r_B4_all(1,mc_w), err_r_B4(1,mc_w), ...
+                b4_n_iter(mc_w), b4_converged(mc_w));
+        end
+        fclose(fid_t);
+    end
 
     % ------------------------------------------------------------------
     %  6. Save convergence data for Fig 10 (convergence sweep only)
