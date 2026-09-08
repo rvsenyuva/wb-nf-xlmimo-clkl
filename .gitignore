@@ -127,3 +127,4 @@ simulation_parameters.csv
 # ------------------------------------------------------------------
 archive/
 results/riviello_snr/mc_snr_sweep_20260610_202615.csv
+results/
