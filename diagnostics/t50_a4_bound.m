@@ -19,7 +19,7 @@
 %  Encoding: 7-bit ASCII.
 
 %% ---- 0. Configuration -------------------------------------------------
-DRY_RUN = true;    % set false for the real run
+DRY_RUN = false;    % set false for the real run
 A3_DIR   = 'C:\Users\senyu\Downloads\paperC_A3_20260907\paperC_A3_20260907';
 OUT_DIR  = fullfile('results', 'paperC_A4_t50');
 CTL_TS   = '20260908_145855';                          % seed base 1000
