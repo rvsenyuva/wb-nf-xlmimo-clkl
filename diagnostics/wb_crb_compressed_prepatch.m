@@ -1,4 +1,4 @@
-function [crb_r, crb_theta, info] = wb_crb_compressed(theta_true, r_true, ...
+function [crb_r, crb_theta, info] = wb_crb_compressed_prepatch(theta_true, r_true, ...
                                                         p_true, N0, P, opts)
 %WB_CRB_COMPRESSED  Wideband compressed-domain CRB for near-field XL-MIMO.
 %
@@ -64,7 +64,8 @@ function [crb_r, crb_theta, info] = wb_crb_compressed(theta_true, r_true, ...
 %
 %  OUTPUTS
 %  -------
-%  crb_r     : d x 1  mean over seeds of sqrt(CRB_r_ell)
+%  crb_r     : d x 1  seed-averaged sqrt-CRB for range [m]
+%               (= sqrt(E_W[ CRB_r_ell ]) element-wise, averaged over seeds)
 %  crb_theta : d x 1  seed-averaged sqrt-CRB for angle [deg]
 %  info      : struct with fields:
 %               .crb_r_all    -- d x N_seed  sqrt(CRB_r) per path per seed [m]
@@ -122,21 +123,10 @@ end
 return_J = isfield(opts, 'return_J')  && opts.return_J;
 verbose  = isfield(opts, 'verbose')   && opts.verbose;
 
-% --- T-50 interface (B4 spec D1, 2026-09-17). Defaults leave the published path unchanged.
-use_W_list = isfield(opts, 'W_list') && ~isempty(opts.W_list);
-return_raw = isfield(opts, 'return_raw') && opts.return_raw;
-
 N_seed     = 50;
 rng_seed_W = 0;
 if isfield(P, 'N_seed'),     N_seed     = P.N_seed;     end
 if isfield(P, 'rng_seed_W'), rng_seed_W = P.rng_seed_W; end
-
-if use_W_list
-    assert(iscell(opts.W_list), ...
-        'wb_crb_compressed: opts.W_list must be a cell array of M x N_RF matrices.');
-    assert(~return_J, 'wb_crb_compressed: return_J is not defined with opts.W_list.');
-    N_seed = numel(opts.W_list);
-end
 
 % =========================================================================
 %  1. Derived parameters
@@ -172,12 +162,6 @@ crb_theta_all = zeros(d, N_seed);   % sqrt(CRB_theta) per path per seed [deg]
 cond_J_all    = zeros(1, N_seed);
 n_sing_all    = zeros(1, N_seed);
 
-if return_raw
-    raw_pinv_oo = zeros(d, N_seed); raw_pinv_kk = zeros(d, N_seed); raw_pinv_ok = zeros(d, N_seed);
-    raw_eq_oo   = zeros(d, N_seed); raw_eq_kk   = zeros(d, N_seed); raw_eq_ok   = zeros(d, N_seed);
-    cond_eq_all = zeros(1, N_seed);
-end
-
 % =========================================================================
 %  3. Loop over N_seed random W realisations
 % =========================================================================
@@ -185,15 +169,9 @@ rng_state_save = rng;   % save caller's RNG state
 
 for iseed = 1:N_seed
 
-    if use_W_list
-        % T-50 interface: caller-supplied combiner (fixed ensemble, trial-matched, or eye(M))
-        W = opts.W_list{iseed};
-        assert(size(W, 1) == M, 'wb_crb_compressed: W_list{%d} must have M rows.', iseed);
-    else
-        % Draw a fresh constant-modulus combiner for this seed
-        rng(rng_seed_W + iseed - 1, 'twister');
-        W = (1/sqrt(M)) * exp(1j * 2*pi * rand(M, N_RF));   % M x N_RF
-    end
+    % Draw a fresh constant-modulus combiner for this seed
+    rng(rng_seed_W + iseed - 1, 'twister');
+    W = (1/sqrt(M)) * exp(1j * 2*pi * rand(M, N_RF));   % M x N_RF
 
     % -----------------------------------------------------------------
     %  Accumulate wideband FIM: J_WB = sum_k J_k
@@ -216,20 +194,6 @@ for iseed = 1:N_seed
 
     cond_J_all(iseed)  = cond_num;
     n_sing_all(iseed)  = n_sing;
-
-    if return_raw
-        % Raw pinv blocks and diagonally equilibrated exact-inverse blocks, same J_WB
-        [CRB_eq, cond_eq] = loc_inv_equilibrated(J_WB);
-        for ell = 1:d
-            raw_pinv_oo(ell, iseed) = CRB_mat(ell,   ell);
-            raw_pinv_kk(ell, iseed) = CRB_mat(d+ell, d+ell);
-            raw_pinv_ok(ell, iseed) = CRB_mat(ell,   d+ell);
-            raw_eq_oo(ell, iseed)   = CRB_eq(ell,    ell);
-            raw_eq_kk(ell, iseed)   = CRB_eq(d+ell,  d+ell);
-            raw_eq_ok(ell, iseed)   = CRB_eq(ell,    d+ell);
-        end
-        cond_eq_all(iseed) = cond_eq;
-    end
 
     % -----------------------------------------------------------------
     %  Extract marginal CRBs and apply chain rule (per path)
@@ -271,12 +235,6 @@ info.crb_theta_mean  = crb_theta;
 info.crb_theta_std   = std(crb_theta_all, 0, 2);
 info.cond_J_all      = cond_J_all;
 info.n_singular_all  = n_sing_all;
-
-if return_raw
-    info.raw.pinv = struct('C_oo', raw_pinv_oo, 'C_kk', raw_pinv_kk, 'C_ok', raw_pinv_ok);
-    info.raw.eq   = struct('C_oo', raw_eq_oo,   'C_kk', raw_eq_kk,   'C_ok', raw_eq_ok);
-    info.raw.cond_eq_all = cond_eq_all;
-end
 
 if return_J
     % Return J_WB from the LAST seed (deterministic reference)
@@ -414,19 +372,3 @@ else
 end
 
 end   % loc_pinv_svd
-
-% =========================================================================
-%  LOCAL FUNCTION: diagonally equilibrated exact inverse (T-50 interface)
-% =========================================================================
-function [J_inv, cond_eq] = loc_inv_equilibrated(J)
-%LOC_INV_EQUILIBRATED  Exact inverse of the FIM via J = D*Jn*D,
-%  D = diag(sqrt(diag(J))). cond_eq = cond(Jn) is scale-invariant.
-dj = sqrt(diag(J));
-assert(all(isfinite(dj)) && all(dj > 0), ...
-    'loc_inv_equilibrated: FIM has a non-positive diagonal entry.');
-Dinv    = diag(1 ./ dj);
-Jn      = Dinv * J * Dinv;
-Jn      = (Jn + Jn.') / 2;
-cond_eq = cond(Jn);
-J_inv   = Dinv * (Jn \ eye(size(J, 1))) * Dinv;
-end   % loc_inv_equilibrated
