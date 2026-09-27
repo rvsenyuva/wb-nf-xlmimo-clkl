@@ -13,6 +13,7 @@ function t53_randw_residual(stage)
 %    stage dispatch          -- this header switch
 %    PRE-FLIGHT (R0)         -- Sec. 3.7 PC-T1, PC-T2 (line counts, config)
 %    R1  REPRO               -- Sec. 3.2-3.3; gates G-R1a/b/c
+%  G-R1a/b compare in absolute dB and G-R1c compares integer counts per N-38 (PaperC_A5_R1_GateFailure_Adjudication.md); original verdicts printed as G-R1a-orig, G-R1b-orig, G-R1c-orig.
 %    R2  PRIMARY              -- Sec. 3.2, 3.4; the blind measurement
 %    R3  GRID                 -- Sec. 3.2 (T-49 grid)
 %    R4  NRF                  -- Sec. 3.2, Addendum B.2 (P2b fit set, R4-SQ)
@@ -210,6 +211,9 @@ if any(strcmp(stage, {'R1','ALL'}))
 
     g_r1a_ok = true(N_DRAWS1, numel(B1_list));
     g_r1b_ok = true(N_DRAWS1, numel(B1_list));
+    g_r1a_orig = true(N_DRAWS1, numel(B1_list)); g_r1b_orig = g_r1a_orig;
+    sgn_ok_ex = g_r1a_orig; sgn_ok_fj = g_r1a_orig;
+    absd_ex = nan(N_DRAWS1, numel(B1_list)); absd_fj = absd_ex;
     for ib = 1:numel(B1_list)
         Bv_MHz = B1_list(ib)/1e6;
         mask = abs(Tens.B_MHz - Bv_MHz) < 1e-6;
@@ -228,20 +232,37 @@ if any(strcmp(stage, {'R1','ALL'}))
             reldiff_exact = abs(Bdiag_t53 - G_exact_stageA) / max(abs(G_exact_stageA), eps);
             reldiff_fj    = abs(Bfj_t53   - G_full_stageA)  / max(abs(G_full_stageA),  eps);
 
-            g_r1a_ok(n, ib) = (reldiff_exact <= 1e-8);
-            g_r1b_ok(n, ib) = (reldiff_fj    <= 1e-8);
+            absdiff_exact = abs(Bdiag_t53 - G_exact_stageA);
+            absdiff_fj    = abs(Bfj_t53   - G_full_stageA);
+            absd_ex(n, ib) = absdiff_exact; absd_fj(n, ib) = absdiff_fj;
+            g_r1a_orig(n, ib) = (reldiff_exact <= 1e-8);   % registered rule, reported
+            g_r1b_orig(n, ib) = (reldiff_fj    <= 1e-8);   % registered rule, reported
+            g_r1a_ok(n, ib)   = (absdiff_exact <= 1e-8);   % N-38 rule [dB], halting
+            g_r1b_ok(n, ib)   = (absdiff_fj    <= 1e-8);   % N-38 rule [dB], halting
+            sgn_ok_ex(n, ib)  = (sign(Bdiag_t53) == sign(G_exact_stageA));
+            sgn_ok_fj(n, ib)  = (sign(Bfj_t53)   == sign(G_full_stageA));
 
             REPRO_ROWS(end+1,:) = {n, seeds1(n), Bv_MHz, G_exact_stageA, Bdiag_t53, reldiff_exact, ...
-                G_full_stageA, Bfj_t53, reldiff_fj}; %#ok<SAGROW>
+                G_full_stageA, Bfj_t53, reldiff_fj, absdiff_exact, absdiff_fj}; %#ok<SAGROW>
         end
     end
     n_r1a = sum(g_r1a_ok(:)); n_r1b = sum(g_r1b_ok(:)); n_tot1 = numel(g_r1a_ok);
-    fprintf('\nG-R1a (B_diag reproduces G_exact_dB, <=1e-8 rel, 1155 rows): %d / %d  %s\n', ...
-        n_r1a, n_tot1, loc_pf(n_r1a == n_tot1));
-    fprintf('G-R1b (B_fj reproduces G_fullJac_dB, <=1e-8 rel, 1155 rows): %d / %d  %s\n', ...
-        n_r1b, n_tot1, loc_pf(n_r1b == n_tot1));
-    GATE_ROWS(end+1,:) = {'G-R1a','R1','ALL_1155',n_r1a/n_tot1,1e-8,loc_pf(n_r1a==n_tot1)}; %#ok<SAGROW>
-    GATE_ROWS(end+1,:) = {'G-R1b','R1','ALL_1155',n_r1b/n_tot1,1e-8,loc_pf(n_r1b==n_tot1)}; %#ok<SAGROW>
+    n_r1a_orig = sum(g_r1a_orig(:)); n_r1b_orig = sum(g_r1b_orig(:));
+    max_absd_ex = max(absd_ex(:)); max_absd_fj = max(absd_fj(:));
+    n_sgn_ex = sum(sgn_ok_ex(:)); n_sgn_fj = sum(sgn_ok_fj(:));
+    fprintf('\nG-R1a (B_diag vs G_exact_dB, abs <= 1e-8 dB, N-38): %d/%d  %s  max abs diff = %.6e dB\n', ...
+        n_r1a, n_tot1, loc_pf(n_r1a == n_tot1), max_absd_ex);
+    fprintf('G-R1b (B_fj vs G_fullJac_dB, abs <= 1e-8 dB, N-38): %d/%d  %s  max abs diff = %.6e dB\n', ...
+        n_r1b, n_tot1, loc_pf(n_r1b == n_tot1), max_absd_fj);
+    fprintf('G-R1a-orig (registered, rel <= 1e-8, reported only): %d/%d  %s\n', ...
+        n_r1a_orig, n_tot1, loc_pf(n_r1a_orig == n_tot1));
+    fprintf('G-R1b-orig (registered, rel <= 1e-8, reported only): %d/%d  %s\n', ...
+        n_r1b_orig, n_tot1, loc_pf(n_r1b_orig == n_tot1));
+    fprintf('R1 sign agreement: diag %d/%d, fj %d/%d\n', n_sgn_ex, n_tot1, n_sgn_fj, n_tot1);
+    GATE_ROWS(end+1,:) = {'G-R1a','R1','ALL_1155',max_absd_ex,1e-8,loc_pf(n_r1a==n_tot1)}; %#ok<SAGROW>
+    GATE_ROWS(end+1,:) = {'G-R1b','R1','ALL_1155',max_absd_fj,1e-8,loc_pf(n_r1b==n_tot1)}; %#ok<SAGROW>
+    GATE_ROWS(end+1,:) = {'G-R1a-orig','R1','ALL_1155',n_r1a_orig/n_tot1,1e-8,loc_pf(n_r1a_orig==n_tot1)}; %#ok<SAGROW>
+    GATE_ROWS(end+1,:) = {'G-R1b-orig','R1','ALL_1155',n_r1b_orig/n_tot1,1e-8,loc_pf(n_r1b_orig==n_tot1)}; %#ok<SAGROW>
 
     r1a_pass = (n_r1a == n_tot1); r1b_pass = (n_r1b == n_tot1);
 
@@ -254,17 +275,26 @@ if any(strcmp(stage, {'R1','ALL'}))
 
     mean_t53 = mean(Bdiag_all_400); median_t53 = median(Bdiag_all_400); sd_t53 = std(Bdiag_all_400);
     fracpos_t53 = mean(Bdiag_all_400 > 0);
+    k_t53 = sum(Bdiag_all_400 > 0);
+    mask400 = abs(Tens.B_MHz - 400) < 1e-6;
+    k_ens = sum(Tens.G_exact_dB(mask400) > 0);
+    k_sum = round(row400.frac_positive * row400.n);
     reldiff_mean   = abs(mean_t53 - row400.mean_dB) / abs(row400.mean_dB);
     reldiff_median = abs(median_t53 - row400.median_dB) / abs(row400.median_dB);
     reldiff_sd     = abs(sd_t53 - row400.sd_dB) / abs(row400.sd_dB);
-    g_r1c_ok = (reldiff_mean <= 1e-6) && (reldiff_median <= 1e-6) && (reldiff_sd <= 1e-6) && ...
-               (fracpos_t53 == row400.frac_positive);
+    g_r1c_orig = (reldiff_mean <= 1e-6) && (reldiff_median <= 1e-6) && (reldiff_sd <= 1e-6) && ...
+                 (fracpos_t53 == row400.frac_positive);          % registered rule, reported
+    g_r1c_ok   = (reldiff_mean <= 1e-6) && (reldiff_median <= 1e-6) && (reldiff_sd <= 1e-6) && ...
+                 (k_t53 == k_ens);                                % N-38 repair
     fprintf('G-R1c (cell summary at B=400,n=385 vs stageA_A2_summary.csv): %s\n', loc_pf(g_r1c_ok));
     fprintf('  mean   t53=%.9f  stageA=%.9f  reldiff=%.3e\n', mean_t53, row400.mean_dB, reldiff_mean);
     fprintf('  median t53=%.9f  stageA=%.9f  reldiff=%.3e\n', median_t53, row400.median_dB, reldiff_median);
     fprintf('  sd     t53=%.9f  stageA=%.9f  reldiff=%.3e\n', sd_t53, row400.sd_dB, reldiff_sd);
     fprintf('  frac_positive t53=%.9f  stageA=%.9f\n', fracpos_t53, row400.frac_positive);
+    fprintf('  count B>0: t53=%d  stageA_ensemble=%d  stageA_summary(round f*n)=%d\n', k_t53, k_ens, k_sum);
+    fprintf('G-R1c-orig (registered, == on frac_positive, reported only): %s\n', loc_pf(g_r1c_orig));
     GATE_ROWS(end+1,:) = {'G-R1c','R1','B400_n385',NaN,1e-6,loc_pf(g_r1c_ok)}; %#ok<SAGROW>
+    GATE_ROWS(end+1,:) = {'G-R1c-orig','R1','B400_n385',NaN,NaN,loc_pf(g_r1c_orig)}; %#ok<SAGROW>
 
     % ---- per-cell summary rows for R1 (reported with distribution, F-030) --
     for ib = 1:numel(B1_list)
@@ -273,10 +303,10 @@ if any(strcmp(stage, {'R1','ALL'}))
         Btheta_ib = cell2mat(cellfun(@(c) c{17}, R1_ALL{ib}, 'UniformOutput', false));
         Vr_nb_ib = cell2mat(cellfun(@(c) c{18}, R1_ALL{ib}, 'UniformOutput', false));
         Vr_wb_ib = cell2mat(cellfun(@(c) c{19}, R1_ALL{ib}, 'UniformOutput', false));
-        cond_eq_nb_ib = cell2mat(cellfun(@(c) c{27}, R1_ALL{ib}, 'UniformOutput', false));
-        cond_eq_wb_ib = cell2mat(cellfun(@(c) c{28}, R1_ALL{ib}, 'UniformOutput', false));
-        nsing_nb_ib = cell2mat(cellfun(@(c) c{29}, R1_ALL{ib}, 'UniformOutput', false));
-        nsing_wb_ib = cell2mat(cellfun(@(c) c{30}, R1_ALL{ib}, 'UniformOutput', false));
+        cond_eq_nb_ib = cell2mat(cellfun(@(c) c{28}, R1_ALL{ib}, 'UniformOutput', false));
+        cond_eq_wb_ib = cell2mat(cellfun(@(c) c{29}, R1_ALL{ib}, 'UniformOutput', false));
+        nsing_nb_ib = cell2mat(cellfun(@(c) c{30}, R1_ALL{ib}, 'UniformOutput', false));
+        nsing_wb_ib = cell2mat(cellfun(@(c) c{31}, R1_ALL{ib}, 'UniformOutput', false));
         [~, Ks_ib] = loc_subcarrier_grid(B1_list(ib), fc_const, Delta_f1);
         SUMMARY_ROWS = loc_report_cell_all(SUMMARY_ROWS, 'GLOBECOM', ib, 'R1', M1, N_RF1, B1_list(ib), ...
             Ks_ib, theta1_deg, r1, SNR1_dB, N_DRAWS1, Bfj_ib, Bdiag_ib, Btheta_ib, ...
@@ -284,7 +314,9 @@ if any(strcmp(stage, {'R1','ALL'}))
             max(max(nsing_nb_ib(:)), max(nsing_wb_ib(:))));
     end
 
-    fprintf('\nR1 SUMMARY: G-R1a=%s G-R1b=%s G-R1c=%s\n\n', loc_pf(r1a_pass), loc_pf(r1b_pass), loc_pf(g_r1c_ok));
+    fprintf('\nR1 SUMMARY: G-R1a=%s G-R1b=%s G-R1c=%s | registered: G-R1a-orig=%s G-R1b-orig=%s G-R1c-orig=%s\n\n', ...
+        loc_pf(r1a_pass), loc_pf(r1b_pass), loc_pf(g_r1c_ok), ...
+        loc_pf(n_r1a_orig == n_tot1), loc_pf(n_r1b_orig == n_tot1), loc_pf(g_r1c_orig));
 
     if ~(r1a_pass && r1b_pass)
         fprintf('HALT: G-R1a or G-R1b FAIL. The harness is wrong and nothing\n');
@@ -996,7 +1028,7 @@ summ_cols = {'leg','cell_id','config','M','N_RF','B_hz','K_s','theta_deg','r_m',
     'EW_V_domain_dB','closed_grid_dB','closed_F081_dB','max_cond_eq','max_nsing'};
 gate_cols = {'gate','leg','cell_id','statistic','threshold','verdict'};
 repro_cols = {'draw','seed','B_MHz','G_exact_stageA','B_diag_t53','reldiff_exact', ...
-    'G_fullJac_stageA','B_fj_t53','reldiff_fj'};
+    'G_fullJac_stageA','B_fj_t53','reldiff_fj','absdiff_exact','absdiff_fj'};
 
 if ~isempty(DRAW_ROWS)
     % Rows were appended as [config,cell_id,leg,...] (Sec. 3.1's natural
