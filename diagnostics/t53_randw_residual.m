@@ -340,6 +340,7 @@ SEED_REGISTRY = [];   % running list of all seeds used from R2 onward (G-SEED)
 
 if any(strcmp(stage, {'R2','ALL'}))
     fprintf('### R2 -- PRIMARY (Paper C configuration, blind, n=2213) ###\n\n');
+    [CELL_ID, GATE_ROWS] = loc_cell_start('R2', CELL_ID, stage, GATE_ROWS);   % N-41
     CELL_ID = CELL_ID + 1;
     theta2_deg = 40; r2 = 2.6578125; SNR2_dB = 10; N_draws2 = 2213;
     B2 = 400e6;
@@ -347,6 +348,7 @@ if any(strcmp(stage, {'R2','ALL'}))
     [SUMMARY_ROWS, DRAW_ROWS, SEED_REGISTRY, GATE_ROWS] = loc_run_cell( ...
         'PaperC', CELL_ID, 'R2', P_PC, B2, theta2_deg, r2, SNR2_dB, N_draws2, ...
         lam_c, d_ant, fc_const, SEED_REGISTRY, DRAW_ROWS, SUMMARY_ROWS, GATE_ROWS, true);
+    loc_cell_stop('R2', CELL_ID, N_draws2);   % N-41
 end
 
 if strcmp(stage, 'R2')
@@ -360,6 +362,7 @@ end
 % =========================================================================
 if any(strcmp(stage, {'R3','ALL'}))
     fprintf('### R3 -- GRID (geometry x bandwidth, Paper C array, n=385/cell) ###\n\n');
+    [CELL_ID, GATE_ROWS] = loc_cell_start('R3', CELL_ID, stage, GATE_ROWS);   % N-41
     B3_list = [100 200 400 600 800] * 1e6;
     R3_list = [1.50 2.13 3.00 5.00 10.00];
     THETA3_list = [20 40 60];
@@ -376,6 +379,7 @@ if any(strcmp(stage, {'R3','ALL'}))
             end
         end
     end
+    loc_cell_stop('R3', CELL_ID, N_draws3);   % N-41
     fprintf('R3 complete: %d cells (5 B x 3 theta x 5 r).\n\n', numel(B3_list)*numel(THETA3_list)*numel(R3_list));
 end
 
@@ -390,6 +394,7 @@ end
 % =========================================================================
 if any(strcmp(stage, {'R4','ALL'}))
     fprintf('### R4 -- NRF LADDER (Addendum B.2: fit set {4,8,16,32}; N_RF=64 -> R4-SQ) ###\n\n');
+    [CELL_ID, GATE_ROWS] = loc_cell_start('R4', CELL_ID, stage, GATE_ROWS);   % N-41
     NRF4_list = [4 8 16 32 64];
     theta4_deg = 40; r4 = 2.6578125; SNR4_dB = 10; N_draws4 = 385; B4 = 400e6;
 
@@ -424,6 +429,8 @@ if any(strcmp(stage, {'R4','ALL'}))
                 maxcond_here, maxnsing_here);
         end
     end
+
+    loc_cell_stop('R4', CELL_ID, N_draws4);   % N-41
 
     % ---- P2b: log-log fit of SD vs N_RF over {4,8,16,32} only (drop 64) ---
     fit_mask = ismember(R4_NRF, [4 8 16 32]);
@@ -517,6 +524,7 @@ end
 % =========================================================================
 if any(strcmp(stage, {'R6','ALL'}))
     fprintf('### R6 -- SNR LADDER (Paper C configuration, reported never gated) ###\n\n');
+    [CELL_ID, GATE_ROWS] = loc_cell_start('R6', CELL_ID, stage, GATE_ROWS);   % N-41
     SNR6_list = [-5 0 10 20 25];
     theta6_deg = 40; r6 = 2.6578125; N_draws6 = 385; B6 = 400e6;
     for i = 1:numel(SNR6_list)
@@ -525,6 +533,7 @@ if any(strcmp(stage, {'R6','ALL'}))
             'PaperC', CELL_ID, 'R6', P_PC, B6, theta6_deg, r6, SNR6_list(i), N_draws6, ...
             lam_c, d_ant, fc_const, SEED_REGISTRY, DRAW_ROWS, SUMMARY_ROWS, GATE_ROWS, false);
     end
+    loc_cell_stop('R6', CELL_ID, N_draws6);   % N-41
     fprintf('R6 complete: %d SNR points.\n\n', numel(SNR6_list));
 end
 
@@ -977,6 +986,32 @@ for iB = 1:numel(R3_B)
     end
 end
 
+if ~centred
+    % GLOBECOM leg of G-R5 (Spec Sec. 3.2 R5 row "as R3 and R1"; Sec. 3.7
+    % G-R5 row "and the GLOBECOM leg at every R1 bandwidth"). Pre-data fix,
+    % N-41. W = I at R1's configuration and geometry (M = 256, Delta_f =
+    % 120 kHz, 40 deg, 5 m, N = 64), native grid from the VERBATIM
+    % loc_subcarrier_grid, B_ref on the grid actually used (Addendum B.3).
+    M_gc = 256; Delta_f_gc = 120e3; th_gc = 40*pi/180; r_gc = 5; N_gc = 64;
+    B_gc_list = [100 400 800]*1e6;
+    q_gc = 2*pi*d_ant/lam_c;
+    c_gc = pi*d_ant^2/lam_c*sin(th_gc)^2;
+    g_om_gc = 2*r_gc*cot(th_gc) / (-q_gc*sin(th_gc));
+    g_ka_gc = -r_gc / (c_gc / r_gc);
+    for iBg = 1:numel(B_gc_list)
+        [al_gc, Ks_gc] = loc_subcarrier_grid(B_gc_list(iBg), fc_const, Delta_f_gc);
+        B_ref_gc = 10*log10(mean(al_gc(:).^2));
+        [Bfj_gc, ~, ~, raw_gc] = loc_B_of_gW(th_gc, r_gc, 1, N0, M_gc, M_gc, N_gc, ...
+            al_gc, lam_c, d_ant, eye(M_gc));
+        n_cells = n_cells + 1;
+        devs(end+1) = abs(Bfj_gc - B_ref_gc); %#ok<AGROW>
+        c1_ratios(end+1) = abs(2*g_om_gc*g_ka_gc*raw_gc.C_ok_wb) / ...
+            max(g_ka_gc^2*abs(raw_gc.C_kk_wb), realmin); %#ok<AGROW>
+        fprintf('G-R5 GLOBECOM leg: B=%.0f MHz K_s=%d |B_fj - B_ref| = %.6e dB\n', ...
+            B_gc_list(iBg)/1e6, Ks_gc, devs(end));
+    end
+end
+
 if centred
     max_dev = max(devs);
     r5c_ok = (max_dev <= 1e-8);
@@ -1014,6 +1049,54 @@ g_ka = -r/kap;
 Coo = info.raw.eq.C_oo; Ckk = info.raw.eq.C_kk; Cok = info.raw.eq.C_ok;
 vr_fj = g_om^2*Coo + 2*g_om*g_ka*Cok + g_ka^2*Ckk;
 vv = mean(vr_fj);
+end
+
+function [PLAN, all_seeds] = loc_cell_plan()
+% Addendum B.1 global cell enumeration (N-41, pre-data): one cell_id per
+% (leg, cell) across R2, R3, R4 and R6, identical whether a leg is run
+% alone or under 'ALL'. Columns: leg, cell_id before its first cell,
+% number of cells, draws per cell.
+PLAN = {'R2', 0, 1, 2213; 'R3', 1, 75, 385; 'R4', 76, 5, 385; 'R6', 81, 5, 385};
+all_seeds = [];
+for j = 1:size(PLAN, 1)
+    for c = PLAN{j,2} + (1:PLAN{j,3})
+        all_seeds = [all_seeds; 5300000 + 10000*c + (1:PLAN{j,4}).']; %#ok<AGROW>
+    end
+end
+end
+
+function [cid, GATE_ROWS] = loc_cell_start(leg, cid_now, stage, GATE_ROWS)
+% Sets CELL_ID to the leg's planned base and evaluates G-SEED over every
+% seed of the plan (Addendum B.1: "the set of all seeds it will use"),
+% before any FIM is formed. Halting (N-41, pre-data).
+[PLAN, all_seeds] = loc_cell_plan();
+k = find(strcmp(PLAN(:,1), leg));
+assert(numel(k) == 1, 't53_randw_residual: no cell plan for leg %s.', leg);
+cid = PLAN{k,2};
+if strcmp(stage, 'ALL')
+    assert(cid_now == cid, 't53_randw_residual: ALL-mode cell enumeration drifted at %s (%d, plan %d).', ...
+        leg, cid_now, cid);
+end
+n_dup = numel(all_seeds) - numel(unique(all_seeds));
+plan_ok = (n_dup == 0) && all(cell2mat(PLAN(:,4)) <= 9999);
+fprintf('G-SEED-PLAN [%s]: cells %d-%d of 1-%d; %d planned seeds over R2/R3/R4/R6; duplicates %d: %s\n', ...
+    leg, cid + 1, cid + PLAN{k,3}, PLAN{end,2} + PLAN{end,3}, numel(all_seeds), n_dup, loc_pf(plan_ok));
+GATE_ROWS(end+1,:) = {'G-SEED-PLAN', leg, sprintf('%d-%d', cid + 1, cid + PLAN{k,3}), ...
+    numel(all_seeds), NaN, loc_pf(plan_ok)};
+if ~plan_ok
+    error('t53_randw_residual: G-SEED-PLAN FAIL at %s. Seed allocation is wrong. Halting.', leg);
+end
+end
+
+function loc_cell_stop(leg, cid_now, n_draws)
+% Asserts the leg ended on its planned last cell with its planned draw
+% count (N-41, pre-data).
+PLAN = loc_cell_plan();
+k = find(strcmp(PLAN(:,1), leg));
+assert(cid_now == PLAN{k,2} + PLAN{k,3}, ...
+    't53_randw_residual: %s ended at cell %d, plan %d.', leg, cid_now, PLAN{k,2} + PLAN{k,3});
+assert(n_draws == PLAN{k,4}, ...
+    't53_randw_residual: %s draws %d, plan %d.', leg, n_draws, PLAN{k,4});
 end
 
 function loc_finish(OUT_DIR, ts, t_start, DRAW_ROWS, SUMMARY_ROWS, GATE_ROWS, REPRO_ROWS)
@@ -1055,6 +1138,28 @@ if ~isempty(SUMMARY_ROWS)
     Ts = cell2table(S2, 'VariableNames', summ_cols);
     writetable(Ts, fullfile(OUT_DIR, sprintf('t53_summary_%s.csv', ts)));
 end
+% G-DST (Spec Sec. 3.7; evaluated here per N-41, pre-data): every summary
+% row carries a finite SD and both percentiles, and every (config, cell)
+% carries all four quantities. Printed verdict per L-36.
+n_rows_dst = size(SUMMARY_ROWS, 1);
+dst_ok = true;
+if n_rows_dst > 0
+    sd_c   = cell2mat(SUMMARY_ROWS(:,15));
+    p25_c  = cell2mat(SUMMARY_ROWS(:,18));
+    p975_c = cell2mat(SUMMARY_ROWS(:,19));
+    dst_ok = all(isfinite(sd_c)) && all(isfinite(p25_c)) && all(isfinite(p975_c));
+    dst_keys = strcat(SUMMARY_ROWS(:,1), '|', ...
+        cellfun(@num2str, SUMMARY_ROWS(:,2), 'UniformOutput', false));
+    [~, ~, ic_dst] = unique(dst_keys);
+    dst_ok = dst_ok && all(accumarray(ic_dst, 1) == 4);
+end
+fprintf('G-DST: %d summary rows checked (finite SD, p2.5, p97.5; 4 quantities per cell): %s\n', ...
+    n_rows_dst, loc_pf(dst_ok));
+GATE_ROWS(end+1,:) = {'G-DST', 'ALL', 'ALL', n_rows_dst, NaN, loc_pf(dst_ok)};
+if ~dst_ok
+    fprintf('HALT: G-DST FAIL (reporting defect). Run no further leg.\n');
+end
+
 if ~isempty(GATE_ROWS)
     Tg = cell2table(GATE_ROWS, 'VariableNames', gate_cols);
     writetable(Tg, fullfile(OUT_DIR, sprintf('t53_gates_%s.csv', ts)));
