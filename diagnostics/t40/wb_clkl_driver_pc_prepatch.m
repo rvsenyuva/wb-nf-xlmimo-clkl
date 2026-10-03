@@ -1,5 +1,5 @@
 function [theta_hat, r_hat, p_hat, N0_hat, info] = ...
-    wb_clkl_driver_pc(R_hat_cell, W_comb, theta_init, r_init, p_init, P)
+    wb_clkl_driver_pc_prepatch(R_hat_cell, W_comb, theta_init, r_init, p_init, P)
 %WB_CLKL_DRIVER  4-phase WB-CL-KL optimisation driver (v2, Component 2).
 %
 %  Paper C Phase 3, Task 11.3 (rev3) Component 2.  Orchestrates the full
@@ -448,16 +448,6 @@ else
     info.L_PhaseD      = [L_A, L_B, L_C];
     PhaseD_labels      = 'ABC';
     info.PhaseD_select = PhaseD_labels(sel_idx);
-    % T-54 change T54-2 (Spec Sec. 4.3): optional field P.phaseD_anchor_off,
-    % default false. When true, Phase D reports candidate A unconditionally
-    % and labels the selection 'a'. Candidates B and C were evaluated above
-    % and the three objective values are returned unchanged. With the field
-    % absent or false nothing in this block runs (gate G-T3).
-    if isfield(P, 'phaseD_anchor_off') && isequal(P.phaseD_anchor_off, true)
-        theta_hat          = theta_out;
-        r_hat              = (1 ./ u_ref(:));
-        info.PhaseD_select = 'a';
-    end
 end
 
 p_hat  = p_ref(:);
