@@ -255,6 +255,12 @@ for s = 1 : n_sweep
     b4_n_iter   = nan(1, N_MC);
     b4_converged = nan(1, N_MC);
 
+    % B4 Phase D log (T-63). Logging only: copied from info_B4 through res;
+    % never read by any estimator and never fed back into the loop.
+    b4_PhaseD_sel = repmat('?', 1, N_MC);   % 'A' | 'B' | 'C'; '?' if absent
+    b4_L_PhaseD   = nan(3, N_MC);           % [L_A; L_B; L_C]; NaN if absent
+    b4_best_start = nan(1, N_MC);           % multi-start winner; NaN if absent
+
     % Method runtimes [s]
     rt_B1 = nan(1, N_MC);
     rt_B2 = nan(1, N_MC);
@@ -288,6 +294,9 @@ for s = 1 : n_sweep
         L_hist_all{mc}   = res.L_hist;
         b4_n_iter(mc)    = res.n_iter;
         b4_converged(mc) = res.converged;
+        b4_PhaseD_sel(mc)  = res.PhaseD_select;   % T-63 (logging only)
+        b4_L_PhaseD(:, mc) = res.L_PhaseD;        % T-63 (logging only)
+        b4_best_start(mc)  = res.best_start;      % T-63 (logging only)
 
         rt_B1(mc) = res.rt_B1;
         rt_B2(mc) = res.rt_B2;
@@ -382,18 +391,29 @@ for s = 1 : n_sweep
             fid_t = fopen(trial_csv, 'w');
             fprintf(fid_t, ['sweep_value,SNR_dB,mc_seed_base,mc_idx,mc_seed,' ...
                 'theta_true_deg,r_true_m,r_B4_m,err_r_B4_m,' ...
-                'n_iter,converged\n']);
+                'n_iter,converged,' ...
+                'r_B1_m,theta_B1_deg,PhaseD_select,' ...
+                'L_PhaseD_A,L_PhaseD_B,L_PhaseD_C,best_start,' ...
+                'theta_B4_deg\n']);
             fclose(fid_t);
         end
         fid_t = fopen(trial_csv, 'a');
         for mc_w = 1 : N_MC
             fprintf(fid_t, ...
-                '%.6g,%.6g,%d,%d,%d,%.10g,%.10g,%.10g,%.10g,%g,%g\n', ...
+                '%.6g,%.6g,%d,%d,%d,%.10g,%.10g,%.10g,%.10g,%g,%g', ...
                 sweep_vec(s), SNR_dB_s, mc_seed_base, mc_w, ...
                 mc_seed_base + mc_w, ...
                 th_true_all(1,mc_w) * 180/pi, r_true_all(1,mc_w), ...
                 r_B4_all(1,mc_w), err_r_B4(1,mc_w), ...
                 b4_n_iter(mc_w), b4_converged(mc_w));
+            % T-63: Phase D log columns, appended after the eleven above;
+            % theta_B4_deg added by author decision T63G-D7 (g7-b).
+            fprintf(fid_t, ',%.10g,%.10g,%c,%.10g,%.10g,%.10g,%g,%.10g\n', ...
+                r_B1_all(1,mc_w), th_B1_all(1,mc_w) * 180/pi, ...
+                b4_PhaseD_sel(mc_w), ...
+                b4_L_PhaseD(1,mc_w), b4_L_PhaseD(2,mc_w), ...
+                b4_L_PhaseD(3,mc_w), b4_best_start(mc_w), ...
+                th_B4_all(1,mc_w) * 180/pi);
         end
         fclose(fid_t);
     end
@@ -543,6 +563,7 @@ else
 end
 p_init = ones(P.d, 1) / P.d;   % equal-power warm-start
 
+info_B4 = struct();   % T-63: exists before the call, so the log below can test it
 t0 = tic;
 try
     [th_B4, r_B4, ~, ~, info_B4] = wb_clkl_driver( ...
@@ -579,6 +600,27 @@ end
 res.rt_B4 = toc(t0);
 res.th_B4 = th_B4;
 res.r_B4  = r_B4;
+
+% ---- T-63: Phase D log (logging only) ----------------------------------
+% Copies three fields that wb_clkl_driver has already set in its info
+% output into res. Nothing here is read by any estimator. The block stands
+% after the try/catch and after the B4 timer, so a fault in these lines
+% cannot change an estimate or a runtime; it can only stop the run.
+res.PhaseD_select = '?';         % 'A' | 'B' | 'C' as the driver labels it
+res.L_PhaseD      = nan(3, 1);   % [L_A; L_B; L_C]
+res.best_start    = NaN;         % multi-start winning candidate index
+if isfield(info_B4, 'PhaseD_select') && ischar(info_B4.PhaseD_select) ...
+        && numel(info_B4.PhaseD_select) == 1
+    res.PhaseD_select = info_B4.PhaseD_select;
+end
+if isfield(info_B4, 'L_PhaseD') && isnumeric(info_B4.L_PhaseD) ...
+        && isreal(info_B4.L_PhaseD) && numel(info_B4.L_PhaseD) == 3
+    res.L_PhaseD = double(info_B4.L_PhaseD(:));
+end
+if isfield(info_B4, 'best_start') && isnumeric(info_B4.best_start) ...
+        && isreal(info_B4.best_start) && isscalar(info_B4.best_start)
+    res.best_start = double(info_B4.best_start);
+end
 
 end  % run_one_realisation
 
