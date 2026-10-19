@@ -79,7 +79,10 @@ bound_tm = y_tm(win_mask);
 % also carries the note of N-32 (b) read from O1. The family, the geometry and
 % the N-32 (a) label stay in the label columns of O1 and go to the caption (C2b).
 lbl_fa = lab_fa.obs;
-lbl_tm = [lab_tm.obs '; ' lab_tm.nb];
+% N4RP-D1 (sessions/2026-10-19_NEW4-replot/DECISIONS_N4RP.md): the note of N-32 (b)
+% takes its own legend row, word for word, so that no row is wider than the figure.
+lbl_tm = [lab_tm.obs ';'];
+lbl_nb = lab_tm.nb;
 
 % =========================================================================
 %  Y2: style, figure and axes, lines copied from the blob
@@ -144,6 +147,8 @@ crb = bound_tm;
 h_TM = semilogy(ax, snr_B4, crb, '--', ...
     'Color', c_CRB, 'LineWidth', lw_CRB);
 set(h_TM, 'LineStyle', '-.');
+% N4RP-D1: an empty line object (no line, no marker, no data) whose legend row carries the note
+h_NB = plot(ax, NaN, NaN, 'LineStyle', 'none', 'Marker', 'none');
 % COPIED from plotting/fig8a_rmse_r_snr.m@0ebc02da00bd L135 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 hold(ax, 'off');
 
@@ -182,8 +187,8 @@ ylabel(ax, 'RMSE$_r$ [m]', 'Interpreter', 'latex', 'FontSize', 9);
 % the option lines of the legend call are copied, except NumColumns, which N4V-D3 sets to 1 (a comment line cannot stand inside the continued statement)
 % COPIED from plotting/fig8a_rmse_r_snr.m@0ebc02da00bd L168-172 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 leg = legend(ax, ...
-    [h_B1, h_B2, h_B4, h_B5, h_FA, h_TM], ...
-    {M_B1, M_B2, M_B4, M_B5, lbl_fa, lbl_tm}, ...
+    [h_B1, h_B2, h_B4, h_B5, h_FA, h_TM, h_NB], ...
+    {M_B1, M_B2, M_B4, M_B5, lbl_fa, lbl_tm, lbl_nb}, ...
     'Interpreter', 'latex', ...
     'FontSize',    6.5, ...
     'NumColumns',  1, ...
