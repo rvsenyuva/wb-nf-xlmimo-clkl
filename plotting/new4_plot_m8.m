@@ -94,6 +94,9 @@ fig_h_cm = 10.5;
 % COPIED from plotting/fig11_riviello_snr_axis.m@759a69e4f8df L62-63 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 ax_main_pos = [0.14  0.38  0.83  0.58];   % top: curves
 ax_hist_pos = [0.14  0.11  0.83  0.20];   % bottom: histogram
+% M8RP-D1 (sessions/2026-10-19_M8-replot/DECISIONS_M8RP.md): the top panel is made
+% shorter, so that the legend stands in a strip of its own above it (placed after the legend call)
+ax_main_pos(4) = 0.50;
 % COPIED from plotting/fig11_riviello_snr_axis.m@759a69e4f8df L65-67 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 fig = figure('Units', 'centimeters', ...
     'Position', [2 2 fig_w_cm fig_h_cm], ...
@@ -141,6 +144,12 @@ legend(ax1, [h_bd, h_b4], ...
     'Interpreter', 'latex', ...
     'FontSize',    6.5, ...
     'Box',         'on');
+% M8RP-D1: the legend leaves the top panel for the strip above it, wider than the panel,
+% so that it covers no point of either curve and each row fits inside its box; no text,
+% handle, font size or other option of the legend changes
+lgd = ax1.Legend;
+lgd.Units    = 'normalized';
+lgd.Position = [0.02  0.895  0.96  0.075];
 
 % COPIED from plotting/fig11_riviello_snr_axis.m@759a69e4f8df L121 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 hold(ax1, 'off');
