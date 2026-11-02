@@ -16,6 +16,14 @@ function new4_plot_m1(results_dir, stamp)
 %  PDF into results_dir, named new4_<published PDF base name>_<stamp>.pdf (Y1;
 %  N4G-D20: the author's block copies it under the published name later).
 %
+%  C3c3F (paperC-lab sessions/2026-11-02_C3c3F/FIGURE_C3c3F.md) adds to the list
+%  above: it also reads the CT-A summary ctA_summary_20261031_131304.csv in
+%  results_dir (the run of record of the CT-A estimator) and draws one more
+%  curve from it, its all-trial range RMSE (GAP-03 (a), CTASV-K1). It reads no
+%  other column of that file, and it forms, draws, prints and writes no
+%  quotient, difference or order of that curve and any other series or bound
+%  (RD-09, CTASC-K5).
+%
 %  Labels in comments: Yn = requirement of the starter of the code session;
 %  N4G-Dn = author decisions; OPEN-n = a choice no record fixes, listed in
 %  OPEN_NEW4.md.
@@ -36,8 +44,19 @@ M_B1 = 'WB-BPD';             % COPIED from L:plotting/fig8a_rmse_r_snr.m@0ebc02d
 M_B2 = 'WB-P-SOMP';       % COPIED from L:plotting/fig8a_rmse_r_snr.m@0ebc02da00bd L54
 M_B4 = 'WB-CL-KL';         % COPIED from L:plotting/fig8a_rmse_r_snr.m@0ebc02da00bd L55
 M_B5 = 'WB-DL-OMP';       % COPIED from L:plotting/fig8a_rmse_r_snr.m@0ebc02da00bd L56
+% C3c3F: the CT-A summary of the run of record (paperC-lab runs/2026-10-31_CTA,
+% run tag 20261031_131304), its header line as that file holds it, and the
+% legend name of its curve (names only, N4G-D13; the name is GAP-01 of GAPS_C3c3F.md)
+CTA_FILE = 'ctA_summary_20261031_131304.csv';
+CTA_HDR  = ['SNR_dB,N_MC,K_COARSE,N_CAND,maxit,n_om,n_ka,RMSE_theta_deg,RMSE_theta_ci_lo,' ...
+            'RMSE_theta_ci_hi,RMSE_r_m,RMSE_r_ci_lo,RMSE_r_ci_hi,n_not_gross,RMSE_theta_not_gross_deg,' ...
+            'RMSE_r_not_gross_m,capture,rank_p50,rank_p95,rank_p99,rank_max,n_CONVERGED,n_MAXIT,n_STALL,' ...
+            'v_OK,v_MAXIT,v_BOUNDARY,v_STALL,v_ILLCOND,cert_pass_rate,nonstationary_rate,boundary_rate,' ...
+            'illcond_rate,gross_rate,n_iter_med,n_iter_p95,n_iter_max,cond_Hs_max,open_marker'];
+M_CA = 'MUSIC-type';
 f_csv = fullfile(root_dir, CSV_M1M3);
 f_tab = fullfile(results_dir, TABLE_FILE);
+f_cta = fullfile(results_dir, CTA_FILE);
 
 % =========================================================================
 %  Y3; N4G-D1, N4G-D13: the estimator curves, re-drawn from the committed CSV
@@ -85,6 +104,27 @@ lbl_tm = [lab_tm.obs ';'];
 lbl_nb = lab_tm.nb;
 
 % =========================================================================
+%  C3c3F; GAP-03 (a) by CTASV-K1; RD-03: the all-trial range RMSE of the CT-A
+%  estimator, read from the CT-A summary; its SNR points checked as the bound
+%  table's are, then the same window as the other curves (C3c3Q-K3)
+% =========================================================================
+fprintf('new4_plot_m1: reading %s\n', f_cta);
+[hdr_c, body_c] = loc_read_table(f_cta);
+cols_c = loc_split_csv_line(CTA_HDR);
+if numel(hdr_c) ~= numel(cols_c) || any(~strcmp(hdr_c, cols_c))
+    error('new4_plot_m1:ctacols', 'the header line of the CT-A summary differs from the one this function was written for.');
+end
+snr_CA  = str2double(body_c(:, loc_colname(hdr_c, 'SNR_dB')));
+rmse_CA = str2double(body_c(:, loc_colname(hdr_c, 'RMSE_r_m')));
+[snr_CA, o] = sort(snr_CA);
+rmse_CA = rmse_CA(o);
+if numel(snr_CA) ~= numel(snr_all) || any(abs(snr_CA - snr_all) > 1e-9)
+    error('new4_plot_m1:ctagrid', 'the SNR points of the CT-A summary differ from those of the estimator rows.');
+end
+snr_CA  = snr_CA(win_mask);
+rmse_CA = rmse_CA(win_mask);
+
+% =========================================================================
 %  Y2: style, figure and axes, lines copied from the blob
 % =========================================================================
 % COPIED from plotting/fig8a_rmse_r_snr.m@0ebc02da00bd L80-84 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
@@ -93,6 +133,7 @@ c_B2  = [0.8500 0.3250 0.0980];   % orange
 c_B4  = [0.6350 0.0780 0.1840];   % crimson (proposed)
 c_B5  = [0.4660 0.6740 0.1880];   % green
 c_CRB = [0.0000 0.0000 0.0000];   % black
+c_CA  = [0.4940 0.1840 0.5560];   % purple: C3c3F, the CT-A curve (a style choice, GAP-02 of GAPS_C3c3F.md)
 % COPIED from plotting/fig8a_rmse_r_snr.m@0ebc02da00bd L86-88 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 lw_std = 1.5;  lw_B4 = 2.0;  lw_CRB = 1.0;
 ms_std = 8;    ms_B4 = 9;
@@ -136,6 +177,13 @@ h_B5 = semilogy(ax, snr_B5, rmse_B5, '-^', ...
     'MarkerSize', ms_std, 'MarkerFaceColor', 'none', ...
     'MarkerEdgeColor', c_B5, 'MarkerIndices', mi);
 
+% C3c3F: the CT-A curve, in the form of the estimator calls above, with its own
+% colour and marker (GAP-02), its markers on the same points (mi)
+h_CA = semilogy(ax, snr_CA, rmse_CA, '-v', ...
+    'Color', c_CA, 'LineWidth', lw_std, ...
+    'MarkerSize', ms_std, 'MarkerFaceColor', 'none', ...
+    'MarkerEdgeColor', c_CA, 'MarkerIndices', mi);
+
 % the two bound curves: the published bound-curve call (L132-133), once per
 % family; the compressed curve takes another line style (OPEN-11)
 crb = bound_fa;
@@ -163,6 +211,10 @@ ax.YLim    = [0.01 3];
 % is kept unless a plotted value lies below it; then the lower limit is the
 % decade at or below the smallest plotted value. The upper limit is kept.
 y_all = [rmse_B1(:); rmse_B2(:); rmse_B4(:); rmse_B5(:); bound_fa(:); bound_tm(:)];
+% C3c3F (GAP-04 of GAPS_C3c3F.md, draft form): the CT-A curve is a plotted value
+% in the words of the rule, so its values join the list the rule reads (the
+% axis limit only; nothing is printed)
+y_all = [y_all; rmse_CA(:)];
 y_all = y_all(isfinite(y_all) & y_all > 0);
 if ~isempty(y_all) && min(y_all) < ax.YLim(1)
     ax.YLim = [10^floor(log10(min(y_all))), ax.YLim(2)];
@@ -187,8 +239,8 @@ ylabel(ax, 'RMSE$_r$ [m]', 'Interpreter', 'latex', 'FontSize', 9);
 % the option lines of the legend call are copied, except NumColumns, which N4V-D3 sets to 1 (a comment line cannot stand inside the continued statement)
 % COPIED from plotting/fig8a_rmse_r_snr.m@0ebc02da00bd L168-172 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 leg = legend(ax, ...
-    [h_B1, h_B2, h_B4, h_B5, h_FA, h_TM, h_NB], ...
-    {M_B1, M_B2, M_B4, M_B5, lbl_fa, lbl_tm, lbl_nb}, ...
+    [h_B1, h_B2, h_B4, h_B5, h_CA, h_FA, h_TM, h_NB], ...
+    {M_B1, M_B2, M_B4, M_B5, M_CA, lbl_fa, lbl_tm, lbl_nb}, ...
     'Interpreter', 'latex', ...
     'FontSize',    6.5, ...
     'NumColumns',  1, ...
@@ -201,6 +253,17 @@ drawnow;
 ax_pos     = ax.Position;
 leg_h      = leg.Position(4);
 gap        = 0.10;
+% C3c3F (GAP-03 of GAPS_C3c3F.md, draft form): the legend has one row more. If it
+% does not fit between the bottom margin and the gap below the axes, the bottom
+% edge of the axes is raised by the shortfall and their height reduced by the
+% same, so that their top edge stays; otherwise nothing moves
+if ax_pos(2) - gap - leg_h < 0.01
+    ax.Position = [ax_pos(1), 0.01 + leg_h + gap, ax_pos(3), ax_pos(2) + ax_pos(4) - (0.01 + leg_h + gap)];
+    ax_pos = ax.Position;
+    fprintf('new4_plot_m1: layout: the axes were raised to keep the legend inside the figure\n');
+else
+    fprintf('new4_plot_m1: layout: the legend fits below the axes at their copied position\n');
+end
 leg_bottom = ax_pos(2) - gap - leg_h;
 leg_bottom = max(leg_bottom, 0.01);
 leg.Position = [ax_pos(1), leg_bottom, ax_pos(3), leg_h];
@@ -213,7 +276,7 @@ out_pdf = fullfile(results_dir, ['new4_' PDF_BASE '_' stamp '.pdf']);
 % COPIED from plotting/fig8a_rmse_r_snr.m@0ebc02da00bd L187 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 print(fig, '-dpdf', '-painters', out_pdf);
 fprintf('new4_plot_m1: wrote %s\n', out_pdf);
-fprintf('NEW4 PLOT M1 COMPLETE: files read: %s ; %s ; file written: %s\n', f_csv, f_tab, out_pdf);
+fprintf('NEW4 PLOT M1 COMPLETE: files read: %s ; %s ; %s ; file written: %s\n', f_csv, f_tab, f_cta, out_pdf);
 end
 
 function [hdr, body] = loc_read_table(path)
