@@ -205,6 +205,12 @@ hold(ax, 'off');
 % COPIED from plotting/fig9a_rmse_theta_snr.m@00dbb14a70c0 L132-134 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 ax.XLim    = [-5 17.5];
 ax.XTick   = -5:2.5:17.5;
+% C5Q-D1 (paperC-lab sessions/2026-11-07_C5/DECISIONS_C5Q.md; the findings C3aR-F1 and
+% C3c3aR-F1): a margin of X_PAD dB at each end of the SNR axis, so that no marker at the first or
+% the last SNR covers a tick label. The ticks stay as copied above; axis limits only, no value
+% and no text of the figure changes.
+X_PAD      = 1;
+ax.XLim    = ax.XLim + [-X_PAD X_PAD];
 ax.YScale  = 'log';
 % COPIED from plotting/fig9a_rmse_theta_snr.m@00dbb14a70c0 L136 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 ax.YLim    = [5e-3 20];

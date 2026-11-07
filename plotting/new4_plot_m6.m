@@ -134,6 +134,26 @@ end
 % =========================================================================
 xlim(ax_top, [min(snr_col) max(snr_col)]);
 xlim(ax, [min(snr_col) max(snr_col)]);
+% C5Q-D1 (paperC-lab sessions/2026-11-07_C5/DECISIONS_C5Q.md; the findings C3aR-F1 and
+% C3c3aR-F1): margins so that no marker covers a tick label: X_PAD dB at each end of the SNR
+% axis, and the y limits of each panel widened, where needed, to Y_PAD decades beyond its
+% smallest and largest plotted value. The ticks of the limits set above are kept; axis limits
+% only, no value and no text of the figure changes.
+X_PAD = 1.5;
+Y_PAD = 0.2;
+c5_ax = [ax_top, ax];
+c5_y  = {r1_col, r2_col};
+for c5_i = 1:2
+    c5_a  = c5_ax(c5_i);
+    c5_xt = c5_a.XTick;
+    c5_yt = c5_a.YTick;
+    c5_yl = c5_a.YLim;
+    c5_v  = c5_y{c5_i}(isfinite(c5_y{c5_i}) & c5_y{c5_i} > 0);
+    c5_a.XLim  = c5_a.XLim + [-X_PAD X_PAD];
+    c5_a.YLim  = [min(c5_yl(1), min(c5_v) / 10^Y_PAD), max(c5_yl(2), max(c5_v) * 10^Y_PAD)];
+    c5_a.XTick = c5_xt;
+    c5_a.YTick = c5_yt;
+end
 % COPIED from plotting/fig6_crb_d2_snr.m@13fae0aa9ec6 L172 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 xlabel(ax, 'SNR [dB]', 'FontSize', 7.5, 'FontName', 'Times New Roman');
 % COPIED from plotting/fig6_crb_d2_snr.m@13fae0aa9ec6 L174 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
