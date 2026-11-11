@@ -72,6 +72,9 @@ snr_all = snr_B4;
 % Y2; N4G-D10: the published plot window, lines copied from the blob
 % COPIED from plotting/fig9a_rmse_theta_snr.m@00dbb14a70c0 L57-61 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 win_mask = snr_B4 <= 17.5 + 1e-9;
+% NEW5B-D3 (paperC-lab sessions/2026-11-09_NEW5/DECISIONS_NEW5B.md; NEW5P-K1): every SNR point
+% of the inputs is drawn, all 13; the window copied above is replaced by one that keeps every point.
+win_mask = true(size(snr_B4));
 snr_B1   = snr_B1(win_mask);   theta_B1 = theta_B1(win_mask);
 snr_B2   = snr_B2(win_mask);   theta_B2 = theta_B2(win_mask);
 snr_B4   = snr_B4(win_mask);   theta_B4 = theta_B4(win_mask);
@@ -161,6 +164,9 @@ h_B1 = semilogy(ax, snr_B1, theta_B1, '-o', ...
     'Color', c_B1, 'LineWidth', lw_std, ...
     'MarkerSize', ms_std, 'MarkerFaceColor', 'none', ...
     'MarkerEdgeColor', c_B1, 'MarkerIndices', mi);
+% NEW5B-D3 (NEW5P-K3): the WB-BPD markers on the points between the other curves' markers, so
+% that WB-BPD and WB-CL-KL are told apart where their curves meet; shape, fill and line unchanged.
+set(h_B1, 'MarkerIndices', 2:3:n_pts);
 
 h_B2 = semilogy(ax, snr_B2, theta_B2, '-s', ...
     'Color', c_B2, 'LineWidth', lw_std, ...
@@ -205,6 +211,10 @@ hold(ax, 'off');
 % COPIED from plotting/fig9a_rmse_theta_snr.m@00dbb14a70c0 L132-134 of the code repository at 69a752cccbc5 (blob, CR removed) by copy_new4.pl
 ax.XLim    = [-5 17.5];
 ax.XTick   = -5:2.5:17.5;
+% NEW5B-D3 (NEW5P-K2): the SNR axis over all 13 points, -5 to 25 dB, ticks every 5 dB (13 labels
+% at 2.5 dB would crowd the single-column width); the margin of C5Q-D1 below is kept.
+ax.XLim    = [-5 25];
+ax.XTick   = -5:5:25;
 % C5Q-D1 (paperC-lab sessions/2026-11-07_C5/DECISIONS_C5Q.md; the findings C3aR-F1 and
 % C3c3aR-F1): a margin of X_PAD dB at each end of the SNR axis, so that no marker at the first or
 % the last SNR covers a tick label. The ticks stay as copied above; axis limits only, no value
