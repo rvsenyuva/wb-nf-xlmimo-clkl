@@ -161,6 +161,30 @@ end
 fprintf('[MC] mc_seed_base = %d\n', mc_seed_base);
 
 % =========================================================================
+%  NEW5PL FLAGS (pilot of O-3; matched-model control). The defaults keep
+%  the behaviour of commit 7067ed9: with P.clkl_start absent, empty or
+%  'bpd' the warm start of WB-CL-KL is the one of the lines of
+%  run_one_realisation below; with P.gen_use_fresnel absent or false the
+%  generator is called with two arguments. Both flags are registered for
+%  the SNR sweep and the primary generator only.
+% =========================================================================
+clkl_start_log = 'bpd';
+if isfield(P, 'clkl_start') && ~isempty(P.clkl_start)
+    clkl_start_log = char(P.clkl_start);
+end
+assert(any(strcmp(clkl_start_log, {'bpd', 'music'})), ...
+    'run_monte_carlo_paperC: P.clkl_start must be ''bpd'' or ''music''.');
+gen_fresnel_log = double(isfield(P, 'gen_use_fresnel') && P.gen_use_fresnel);
+skip_scan_log   = double(isfield(P, 'ablation_skip_scan') && P.ablation_skip_scan);
+new5pl_default  = strcmp(clkl_start_log, 'bpd') && (gen_fresnel_log == 0);
+assert(new5pl_default || strcmp(sweep_type, 'snr'), ...
+    'run_monte_carlo_paperC: the NEW5PL flags are registered for sweep_type ''snr'' only.');
+assert(new5pl_default || ~P.use_quadriga_channel, ...
+    'run_monte_carlo_paperC: the NEW5PL flags are not defined with use_quadriga_channel.');
+fprintf('[MC] NEW5PL flags: clkl_start = %s, skip_scan = %d, gen_fresnel = %d\n', ...
+    clkl_start_log, skip_scan_log, gen_fresnel_log);
+
+% =========================================================================
 %  CSV HEADER
 % =========================================================================
 write_csv_header(csv_path, sweep_type);
@@ -261,6 +285,15 @@ for s = 1 : n_sweep
     b4_L_PhaseD   = nan(3, N_MC);           % [L_A; L_B; L_C]; NaN if absent
     b4_best_start = nan(1, N_MC);           % multi-start winner; NaN if absent
 
+    % NEW5PL log. Logging only: copied from res; never read by any estimator
+    % and never fed back into the loop.
+    b4_start_used = nan(1, N_MC);       % 1 WB-BPD | 2 WB-P-SOMP | 3 box midpoint | 4 comparator
+    th_start_all  = nan(P_s.d, N_MC);   % start handed to wb_clkl_driver [rad]
+    r_start_all   = nan(P_s.d, N_MC);   % start handed to wb_clkl_driver [m]
+    b4_p_end      = nan(P_s.d, N_MC);   % powers at the end of the main loop
+    b4_N0_end     = nan(1, N_MC);       % noise level at the end of the main loop
+    b4_flags      = nan(5, N_MC);       % five 0/1 flags of the returned estimate
+
     % Method runtimes [s]
     rt_B1 = nan(1, N_MC);
     rt_B2 = nan(1, N_MC);
@@ -297,6 +330,12 @@ for s = 1 : n_sweep
         b4_PhaseD_sel(mc)  = res.PhaseD_select;   % T-63 (logging only)
         b4_L_PhaseD(:, mc) = res.L_PhaseD;        % T-63 (logging only)
         b4_best_start(mc)  = res.best_start;      % T-63 (logging only)
+        b4_start_used(mc)   = res.start_used;   % NEW5PL (logging only)
+        th_start_all(:, mc) = res.th_start;     % NEW5PL (logging only)
+        r_start_all(:, mc)  = res.r_start;      % NEW5PL (logging only)
+        b4_p_end(:, mc)     = res.p_end;        % NEW5PL (logging only)
+        b4_N0_end(mc)       = res.N0_end;       % NEW5PL (logging only)
+        b4_flags(:, mc)     = res.flags;        % NEW5PL (logging only)
 
         rt_B1(mc) = res.rt_B1;
         rt_B2(mc) = res.rt_B2;
@@ -394,7 +433,11 @@ for s = 1 : n_sweep
                 'n_iter,converged,' ...
                 'r_B1_m,theta_B1_deg,PhaseD_select,' ...
                 'L_PhaseD_A,L_PhaseD_B,L_PhaseD_C,best_start,' ...
-                'theta_B4_deg\n']);
+                'theta_B4_deg,' ...
+                'clkl_start,skip_scan,gen_fresnel,start_used,' ...
+                'start_theta_deg,start_r_m,p_end,N0_end,' ...
+                'on_theta_scan,on_u_scan,on_bpd_rgrid,' ...
+                'th_eq_start,r_eq_start\n']);
             fclose(fid_t);
         end
         fid_t = fopen(trial_csv, 'a');
@@ -408,14 +451,49 @@ for s = 1 : n_sweep
                 b4_n_iter(mc_w), b4_converged(mc_w));
             % T-63: Phase D log columns, appended after the eleven above;
             % theta_B4_deg added by author decision T63G-D7 (g7-b).
-            fprintf(fid_t, ',%.10g,%.10g,%c,%.10g,%.10g,%.10g,%g,%.10g\n', ...
+            fprintf(fid_t, ',%.10g,%.10g,%c,%.10g,%.10g,%.10g,%g,%.10g', ...
                 r_B1_all(1,mc_w), th_B1_all(1,mc_w) * 180/pi, ...
                 b4_PhaseD_sel(mc_w), ...
                 b4_L_PhaseD(1,mc_w), b4_L_PhaseD(2,mc_w), ...
                 b4_L_PhaseD(3,mc_w), b4_best_start(mc_w), ...
                 th_B4_all(1,mc_w) * 180/pi);
+            % NEW5PL: the start, the end state of the main loop and the
+            % flags, appended after the nineteen columns above.
+            fprintf(fid_t, ',%s,%d,%d,%g,%.17g,%.17g,%.17g,%.17g,%g,%g,%g,%g,%g\n', ...
+                clkl_start_log, skip_scan_log, gen_fresnel_log, ...
+                b4_start_used(mc_w), ...
+                th_start_all(1,mc_w) * 180/pi, r_start_all(1,mc_w), ...
+                b4_p_end(1,mc_w), b4_N0_end(mc_w), ...
+                b4_flags(1,mc_w), b4_flags(2,mc_w), b4_flags(3,mc_w), ...
+                b4_flags(4,mc_w), b4_flags(5,mc_w));
         end
         fclose(fid_t);
+    end
+
+    % ------------------------------------------------------------------
+    %  5c. NEW5PL: all-trial RMSE of the start handed to WB-CL-KL, written
+    %      only when P.clkl_start = 'music'. Logging only: the error
+    %      function and the RMSE expressions of the method rows above.
+    % ------------------------------------------------------------------
+    if strcmp(clkl_start_log, 'music')
+        [err_th_S, err_r_S] = compute_matched_errors(th_start_all, r_start_all, ...
+                                    th_true_all, r_true_all, P_s);
+        RMSE_theta_S = sqrt(mean(err_th_S(:).^2)) * 180/pi;
+        RMSE_r_S     = sqrt(mean(err_r_S(:).^2));
+        start_csv = fullfile(out_dir, ...
+            sprintf('mc_%s_start_%s.csv', sweep_type, date_str));
+        if ~isfile(start_csv)
+            fid_s = fopen(start_csv, 'w');
+            fprintf(fid_s, ['sweep_value,SNR_dB,N_MC,n_start_comparator,' ...
+                'RMSE_theta_start_deg,RMSE_r_start_m\n']);
+            fclose(fid_s);
+        end
+        fid_s = fopen(start_csv, 'a');
+        fprintf(fid_s, '%s,%s,%d,%d,%s,%s\n', ...
+            fmt_num(sweep_vec(s)), fmt_num(SNR_dB_s), N_MC, ...
+            sum(b4_start_used == 4), ...
+            fmt_num(RMSE_theta_S), fmt_num(RMSE_r_S));
+        fclose(fid_s);
     end
 
     % ------------------------------------------------------------------
@@ -461,8 +539,15 @@ if isfield(P, 'use_quadriga_channel') && P.use_quadriga_channel
     W_comb    = chan_info.W_comb;
     qd_mode   = true;
 else
-    [X_full, Y_full, ~, theta_gen, r_gen, p_gen, N0_gen, W_comb] = ...
-        wb_channel_gen_ofdm_nf(P, SNR_dB);
+    if isfield(P, 'gen_use_fresnel') && P.gen_use_fresnel
+        % NEW5PL matched-model control: the data follow the Fresnel branch
+        % of the generator (its third argument use_exact = false).
+        [X_full, Y_full, ~, theta_gen, r_gen, p_gen, N0_gen, W_comb] = ...
+            wb_channel_gen_ofdm_nf(P, SNR_dB, false);
+    else
+        [X_full, Y_full, ~, theta_gen, r_gen, p_gen, N0_gen, W_comb] = ...
+            wb_channel_gen_ofdm_nf(P, SNR_dB);
+    end
     qd_mode = false;
 end
 
@@ -563,10 +648,55 @@ else
 end
 p_init = ones(P.d, 1) / P.d;   % equal-power warm-start
 
+% ---- NEW5PL: the start of WB-CL-KL (flag P.clkl_start) -----------------
+% Absent, empty or 'bpd': theta_init and r_init stay as the lines above set
+% them, and only start_used is recorded. 'music': the start is the estimate
+% of the MUSIC-type comparator (diagnostics/ctA/wb_nf_music_est.m), formed
+% by new5pl_music_start from the compressed snapshots Y_full and W_comb of
+% this trial. If that estimate is not finite, or the call fails, the start
+% is the WB-P-SOMP estimate when finite, else the midpoint of the box: the
+% fallback of the lines above without WB-BPD.
+if all(isfinite(th_B1)) && all(isfinite(r_B1))
+    start_used = 1;                       % WB-BPD
+elseif all(isfinite(th_B2)) && all(isfinite(r_B2))
+    start_used = 2;                       % WB-P-SOMP
+else
+    start_used = 3;                       % midpoint of the box
+end
+if isfield(P, 'clkl_start') && ~isempty(P.clkl_start) ...
+        && strcmp(char(P.clkl_start), 'music')
+    assert(~qd_mode, ...
+        'run_one_realisation: P.clkl_start = ''music'' needs Y_full of the primary generator.');
+    th_ms = NaN;
+    r_ms  = NaN;
+    try
+        [th_ms, r_ms] = new5pl_music_start(Y_full, W_comb, P);
+    catch ME
+        warning('run_one_realisation:music_start_failed', ...
+            'Comparator start failed (seed=%d): %s', mc_seed, ME.message);
+    end
+    if isscalar(th_ms) && isscalar(r_ms) && isreal(th_ms) && isreal(r_ms) ...
+            && isfinite(th_ms) && isfinite(r_ms)
+        theta_init = th_ms;
+        r_init     = r_ms;
+        start_used = 4;                   % comparator
+    elseif all(isfinite(th_B2)) && all(isfinite(r_B2))
+        theta_init = th_B2(:);
+        r_init     = r_B2(:);
+        start_used = 2;
+    else
+        theta_init = repmat((P.theta_lo + P.theta_hi)/2, P.d, 1);
+        r_init     = repmat(P.r_RD * (P.r_lo_fac + P.r_hi_fac)/2, P.d, 1);
+        start_used = 3;
+    end
+end
+
 info_B4 = struct();   % T-63: exists before the call, so the log below can test it
+p_B4    = nan(P.d, 1);   % NEW5PL: third output of the driver (logging only)
+N0_B4   = NaN;           % NEW5PL: fourth output of the driver (logging only)
 t0 = tic;
 try
-    [th_B4, r_B4, ~, ~, info_B4] = wb_clkl_driver( ...
+    [th_B4, r_B4, p_B4, N0_B4, info_B4] = wb_clkl_driver( ...
         R_hat_cell, W_comb, theta_init, r_init, p_init, P);
     th_B4 = th_B4(:);
     r_B4  = r_B4(:);
@@ -620,6 +750,43 @@ end
 if isfield(info_B4, 'best_start') && isnumeric(info_B4.best_start) ...
         && isreal(info_B4.best_start) && isscalar(info_B4.best_start)
     res.best_start = double(info_B4.best_start);
+end
+
+% ---- NEW5PL: start, end state of the main loop, flags (logging only) ----
+% Nothing here is read by any estimator. p_B4 and N0_B4 are the third and
+% fourth outputs of wb_clkl_driver (p_ref and N0_converged of its main
+% loop). The flags say whether the returned estimate (1) has its angle on
+% the angle grid of the post-loop scan, (2) has its range on the reciprocal
+% of the inverse-range grid of that scan (both by exact equality; the grids
+% are built as wb_clkl_driver.m builds them), (3) lies within 1e-6 m of a
+% node of WB-BPD's range grid (built as bpd_baseline.m builds it), and
+% whether (4) its angle in degrees and (5) its range print, with the
+% format %.10g of the dump, the same text as the start's.
+res.start_used = start_used;
+res.th_start   = theta_init(:);
+res.r_start    = r_init(:);
+res.p_end      = nan(P.d, 1);
+res.N0_end     = NaN;
+if isnumeric(p_B4) && isreal(p_B4) && numel(p_B4) == P.d
+    res.p_end = double(p_B4(:));
+end
+if isnumeric(N0_B4) && isreal(N0_B4) && isscalar(N0_B4)
+    res.N0_end = double(N0_B4);
+end
+res.flags = nan(5, 1);
+if all(isfinite(th_B4)) && all(isfinite(r_B4))
+    th_scan_log = linspace(P.theta_lo, P.theta_hi, 192);
+    u_scan_log  = linspace(P.u_min,    P.u_max,    256);
+    r_min_log   = P.r_lo_fac * P.r_RD;
+    r_max_log   = P.r_hi_fac * P.r_RD;
+    r_bpd_log   = r_min_log + (0:P.G_r-1).' * (r_max_log - r_min_log) / (P.G_r - 1);
+    res.flags(1) = double(any(th_B4(1) == th_scan_log));
+    res.flags(2) = double(any(r_B4(1) == (1 ./ u_scan_log)));
+    res.flags(3) = double(min(abs(r_B4(1) - r_bpd_log)) <= 1e-6);
+    res.flags(4) = double(strcmp(sprintf('%.10g', th_B4(1) * 180/pi), ...
+                                 sprintf('%.10g', theta_init(1) * 180/pi)));
+    res.flags(5) = double(strcmp(sprintf('%.10g', r_B4(1)), ...
+                                 sprintf('%.10g', r_init(1))));
 end
 
 end  % run_one_realisation
